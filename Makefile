@@ -7,6 +7,10 @@ help: ## show help
 		printf "\033[36m%-20s\033[0m %s\n", $$1, $$2 \
 	}'
 
+.PHONY: test
+test:
+	go test -v ./...
+
 .PHONY: version-patch-up
 version-patch-up:
 	awk -F '.' '{printf "%d.%d.%d", $$1, $$2, $$3+1 > "version"}' version
