@@ -28,9 +28,7 @@ func NewSink(task func(interface{}), buffer int) Sink {
 				id:   "sink",
 				from: in,
 				to:   out,
-				task: func(i interface{}) interface{} {
-					return i
-				},
+				task: emptyTaskFunc,
 			},
 		},
 	}

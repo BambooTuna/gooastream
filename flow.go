@@ -57,9 +57,7 @@ func NewBalanceFlow(size int, buffer int) MultiOutputFlow {
 			id:   fmt.Sprintf("balance flow %d", i),
 			from: in,
 			to:   balancer,
-			task: func(v interface{}) interface{} {
-				return v
-			},
+			task: emptyTaskFunc,
 		})
 		outs = append(outs, balancer)
 	}
@@ -80,9 +78,7 @@ func (a *balancerFlowImpl) Via(flows MultiInputFlow) Flow {
 			id:   fmt.Sprintf("balance flow via %d", i),
 			from: a.getOuts()[i],
 			to:   flows.getIns()[i],
-			task: func(i interface{}) interface{} {
-				return i
-			},
+			task: emptyTaskFunc,
 		})
 		a.graphs = append(a.graphs, flows.getGraphs()...)
 	}
@@ -104,9 +100,7 @@ func (a *balancerFlowImpl) IVia(flows []Flow) MultiOutputFlow {
 			id:   fmt.Sprintf("balance flow ivia %d", i),
 			from: v,
 			to:   flow.getIn(),
-			task: func(i interface{}) interface{} {
-				return i
-			},
+			task: emptyTaskFunc,
 		})
 		a.graphs = append(a.graphs, flow.getGraphs()...)
 		outs = append(outs, flow.getOut())
@@ -128,9 +122,7 @@ func (a *balancerFlowImpl) ITo(sinks []Sink) Sink {
 			id:   fmt.Sprintf("balance flow ito %d", i),
 			from: a.getOuts()[i],
 			to:   sink.getIn(),
-			task: func(v interface{}) interface{} {
-				return v
-			},
+			task: emptyTaskFunc,
 		})
 		a.graphs = append(a.graphs, sink.getGraphs()...)
 	}
@@ -159,9 +151,7 @@ func NewMargeFlow(size int, buffer int) MultiInputFlow {
 			id:   fmt.Sprintf("marge flow %d", i),
 			from: marge,
 			to:   out,
-			task: func(i interface{}) interface{} {
-				return i
-			},
+			task: emptyTaskFunc,
 		})
 		ins = append(ins, marge)
 	}
@@ -177,9 +167,7 @@ func (a *margeFlowImpl) Via(flow Flow) MultiInputFlow {
 		id:   "marge flow via",
 		from: a.out,
 		to:   flow.getIn(),
-		task: func(i interface{}) interface{} {
-			return i
-		},
+		task: emptyTaskFunc,
 	})
 	a.graphs = append(a.graphs, flow.getGraphs()...)
 	return &margeFlowImpl{
@@ -198,7 +186,7 @@ func (a *margeFlowImpl) getGraphs() graphs {
 	return a.graphs
 }
 
-func NewFlow(task func(interface{}) interface{}, buffer int) Flow {
+func NewFlow(task func(interface{}) (interface{}, error), buffer int) Flow {
 	in := NewQueueEmpty(buffer)
 	out := NewQueueEmpty(buffer)
 	return &flowImpl{
@@ -220,9 +208,7 @@ func (a *flowImpl) Via(flow Flow) Flow {
 		id:   "flow via",
 		from: a.getOut(),
 		to:   flow.getIn(),
-		task: func(i interface{}) interface{} {
-			return i
-		},
+		task: emptyTaskFunc,
 	})
 	a.graphs = append(a.graphs, flow.getGraphs()...)
 	return &flowImpl{
@@ -236,9 +222,7 @@ func (a *flowImpl) To(sink Sink) Sink {
 		id:   "flow to",
 		from: a.getOut(),
 		to:   sink.getIn(),
-		task: func(i interface{}) interface{} {
-			return i
-		},
+		task: emptyTaskFunc,
 	})
 	a.graphs = append(a.graphs, sink.getGraphs()...)
 	return &sinkImpl{

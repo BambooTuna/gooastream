@@ -32,9 +32,7 @@ func NewChannelSource(buffer int) (SourceRef, Source) {
 				id:   "channel source",
 				from: in,
 				to:   out,
-				task: func(i interface{}) interface{} {
-					return i
-				},
+				task: emptyTaskFunc,
 			},
 		},
 	}
@@ -51,9 +49,7 @@ func NewSource(list []interface{}, buffer int) Source {
 				id:   "source",
 				from: in,
 				to:   out,
-				task: func(i interface{}) interface{} {
-					return i
-				},
+				task: emptyTaskFunc,
 			},
 		},
 	}
@@ -63,9 +59,7 @@ func (a *sourceImpl) Via(flow Flow) Source {
 		id:   "source via",
 		from: a.getOut(),
 		to:   flow.getIn(),
-		task: func(i interface{}) interface{} {
-			return i
-		},
+		task: emptyTaskFunc,
 	})
 	a.graphs = append(a.graphs, flow.getGraphs()...)
 	return &sourceImpl{
@@ -78,9 +72,7 @@ func (a *sourceImpl) To(sink Sink) Runnable {
 		id:   "source to",
 		from: a.getOut(),
 		to:   sink.getIn(),
-		task: func(i interface{}) interface{} {
-			return i
-		},
+		task: emptyTaskFunc,
 	})
 	a.graphs = append(a.graphs, sink.getGraphs()...)
 	return &runnableImpl{
