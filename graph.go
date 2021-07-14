@@ -10,10 +10,14 @@ type (
 		id   string
 		from OutQueue
 		to   InQueue
-		task func(interface{}) interface{}
+		task func(interface{}) (interface{}, error)
 	}
 	graphs []*graph
 )
+
+var emptyTaskFunc = func(i interface{}) (interface{}, error) {
+	return i, nil
+}
 
 func (a graphs) run(ctx context.Context, cancel func()) {
 	for _, v := range a {
@@ -21,7 +25,12 @@ func (a graphs) run(ctx context.Context, cancel func()) {
 	}
 }
 func (a *graph) run(ctx context.Context, cancel func()) {
-	defer cancel()
+	defer func() {
+		// 先にGraphを止めてからQueueを止める
+		cancel()
+		a.from.Close()
+		a.to.Close()
+	}()
 T:
 	for {
 		select {
@@ -32,7 +41,14 @@ T:
 			if err != nil {
 				break T
 			}
-			a.to.Push(ctx, a.task(v))
+			r, err := a.task(v)
+			if err != nil {
+				break T
+			}
+			err = a.to.Push(ctx, r)
+			if err != nil {
+				break T
+			}
 		}
 	}
 }
