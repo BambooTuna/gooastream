@@ -10,13 +10,14 @@ type (
 	Queue interface {
 		OutQueue
 		InQueue
-		CloserQueue
 	}
 	OutQueue interface {
 		Pop(context.Context) (interface{}, error)
+		CloserQueue
 	}
 	InQueue interface {
 		Push(context.Context, interface{}) error
+		CloserQueue
 	}
 	CloserQueue interface {
 		Close()

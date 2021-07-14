@@ -153,7 +153,7 @@ func Test_Balance_Marge_Runnable(t *testing.T) {
 	1. sourceChannelをCloseした時
 	2. 各Taskでエラーを返した時
 */
-func Test_Error_Handle(t *testing.T) {
+func Test_Error_Handle_Task(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
@@ -183,6 +183,45 @@ func Test_Error_Handle(t *testing.T) {
 	_, _, done, runningCancel := runnable.Run(ctx)
 	go func() {
 		_ = runningCancel
+	}()
+
+	// sourceChannel.Close()が呼ばれるかrunningCancel()が呼ばれるまでブロック
+	done()
+	require.NoError(t, ctx.Err())
+}
+
+func Test_Error_Handle_Channel(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	var wg sync.WaitGroup
+
+	n := 100
+	wg.Add(n)
+	sourceChannel, source := NewChannelSource(100)
+	go func() {
+		for i := 0; i < n; i++ {
+			err := sourceChannel.Push(ctx, i)
+			require.NoError(t, err)
+		}
+		// いつでもキャンセルできる
+		sourceChannel.Close()
+	}()
+
+	flow := NewFlow(func(i interface{}) (interface{}, error) {
+		require.Fail(t, "sourceChannelを読んでいるのでここは呼ばれるべきではない")
+		return i, nil
+	}, 0)
+	sink := NewSink(func(i interface{}) error {
+		require.Fail(t, "sourceChannelを読んでいるのでここは呼ばれるべきではない")
+		wg.Done()
+		return nil
+	}, 0)
+
+	runnable := source.Via(flow).To(sink)
+	_, _, done, runningCancel := runnable.Run(ctx)
+	go func() {
+		wg.Wait()
+		runningCancel()
 	}()
 
 	// sourceChannel.Close()が呼ばれるかrunningCancel()が呼ばれるまでブロック

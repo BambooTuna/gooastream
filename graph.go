@@ -25,7 +25,12 @@ func (a graphs) run(ctx context.Context, cancel func()) {
 	}
 }
 func (a *graph) run(ctx context.Context, cancel func()) {
-	defer cancel()
+	defer func() {
+		// 先にGraphを止めてからQueueを止める
+		cancel()
+		a.from.Close()
+		a.to.Close()
+	}()
 T:
 	for {
 		select {

@@ -14,7 +14,7 @@ type (
 	}
 
 	mailboxImp struct {
-		mu       sync.Mutex
+		mu       sync.RWMutex
 		isClosed bool
 		queue    chan interface{}
 	}
@@ -27,6 +27,11 @@ func NewMailbox(size int) Mailbox {
 }
 
 func (a *mailboxImp) EnqueueOrWaitForVacant(ctx context.Context, in interface{}) error {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	if a.isClosed {
+		return fmt.Errorf("queue is closed")
+	}
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -36,6 +41,11 @@ func (a *mailboxImp) EnqueueOrWaitForVacant(ctx context.Context, in interface{})
 	}
 }
 func (a *mailboxImp) DequeueOrWaitForElement(ctx context.Context) (interface{}, error) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	if a.isClosed {
+		return nil, fmt.Errorf("queue is closed")
+	}
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
