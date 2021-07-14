@@ -90,8 +90,8 @@ func Test_Simple_Channel_Runnable(t *testing.T) {
 /*
 	balancerで複数のストリームで処理し、margeで一個のストリームにまとめる
 	Chan ──> Source ─┬─ Flow ─┬─> Sink
-					 ├─ Flow ─┤
-					 └─ Flow ─┘
+                         ├─ Flow ─┤
+                         └─ Flow ─┘
 */
 func Test_Balance_Marge_Runnable(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
