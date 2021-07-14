@@ -1,0 +1,28 @@
+name: Release
+
+on:
+#  pull_request:
+#    branches:  [ main ]
+#    types: [ closed ]
+  push:
+    branches: [ main ]
+
+jobs:
+  tagging:
+    name: Set Tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Set Tag
+        run: |
+          TAG=`cat version`
+          curl -s -X POST "https://api.github.com/repos/${{ github.repository }}/git/refs" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -d @- << EOS
+          {
+            "ref": "refs/tags/${TAG}",
+            "sha": "${{ github.event.pull_request.head.sha }}"
+          }
+          EOS
