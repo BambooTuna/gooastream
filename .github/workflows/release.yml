@@ -22,7 +22,7 @@ jobs:
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -d @- << EOS
           {
-            "ref": "refs/tags/${TAG}",
+            "ref": "refs/tags/v${TAG}",
             "sha": "${{ github.sha }}"
           }
           EOS
