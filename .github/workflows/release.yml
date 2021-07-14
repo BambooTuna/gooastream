@@ -23,6 +23,6 @@ jobs:
             -d @- << EOS
           {
             "ref": "refs/tags/${TAG}",
-            "sha": "${{ github.event.pull_request.head.sha }}"
+            "sha": "${{ github.sha }}"
           }
           EOS
