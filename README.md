@@ -162,7 +162,7 @@ func Test_Balance_Marge_Runnable(t *testing.T) {
 
 ## Install
 ```bash
-$ go get github.com/BambooTuna/gooastream@v1.0.1
+$ go get github.com/BambooTuna/gooastream@v1.0.2
 ```
 
 ## Contribution
