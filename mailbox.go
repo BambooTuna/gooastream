@@ -8,7 +8,7 @@ import (
 
 type (
 	Mailbox interface {
-		EnqueueOrWaitForVacant(context.Context, interface{})
+		EnqueueOrWaitForVacant(context.Context, interface{}) error
 		DequeueOrWaitForElement(context.Context) (interface{}, error)
 		Close()
 	}
@@ -26,11 +26,13 @@ func NewMailbox(size int) Mailbox {
 	}
 }
 
-func (a *mailboxImp) EnqueueOrWaitForVacant(ctx context.Context, in interface{}) {
+func (a *mailboxImp) EnqueueOrWaitForVacant(ctx context.Context, in interface{}) error {
 	select {
 	case <-ctx.Done():
+		return ctx.Err()
 	default:
 		a.queue <- in
+		return nil
 	}
 }
 func (a *mailboxImp) DequeueOrWaitForElement(ctx context.Context) (interface{}, error) {

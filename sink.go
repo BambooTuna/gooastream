@@ -17,7 +17,7 @@ type (
 	}
 )
 
-func NewSink(task func(interface{}), buffer int) Sink {
+func NewSink(task func(interface{}) error, buffer int) Sink {
 	in := NewQueueEmpty(buffer)
 	out := NewQueueSink(task)
 	return &sinkImpl{

@@ -40,7 +40,10 @@ T:
 			if err != nil {
 				break T
 			}
-			a.to.Push(ctx, r)
+			err = a.to.Push(ctx, r)
+			if err != nil {
+				break T
+			}
 		}
 	}
 }
