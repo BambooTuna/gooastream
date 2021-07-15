@@ -9,32 +9,24 @@ type (
 		Via(Flow) Source
 		To(Sink) Runnable
 
-		CloseToSingleOutput
+		Outlet
 		Graph
 	}
 	sourceImpl struct {
-		id     string
-		out    Queue
-		graphs graphs
-
-		left interface{}
+		out   Queue
+		graph *graph
+		left  interface{}
 	}
 )
+
+var _ Source = (*sourceImpl)(nil)
 
 func NewChannelSource(buffer int) (SourceRef, Source) {
 	in := NewQueueEmpty(buffer)
 	out := NewQueueEmpty(buffer)
 	return in, &sourceImpl{
-		id:  "channel source",
-		out: out,
-		graphs: graphs{
-			&graph{
-				id:   "channel source",
-				from: in,
-				to:   out,
-				task: emptyTaskFunc,
-			},
-		},
+		out:   out,
+		graph: passThrowGraph(in, out),
 	}
 }
 
@@ -42,51 +34,28 @@ func NewSource(list []interface{}, buffer int) Source {
 	in := NewQueueSlice(list)
 	out := NewQueueEmpty(buffer)
 	return &sourceImpl{
-		id:  "source",
-		out: out,
-		graphs: graphs{
-			&graph{
-				id:   "source",
-				from: in,
-				to:   out,
-				task: emptyTaskFunc,
-			},
-		},
+		out:   out,
+		graph: passThrowGraph(in, out),
 	}
 }
 func (a *sourceImpl) Via(flow Flow) Source {
-	a.graphs = append(a.graphs, &graph{
-		id:   "source via",
-		from: a.getOut(),
-		to:   flow.getIn(),
-		task: emptyTaskFunc,
-	})
-	a.graphs = append(a.graphs, flow.getGraphs()...)
 	return &sourceImpl{
-		out:    flow.getOut(),
-		graphs: a.graphs,
+		out: flow.Out(),
+		graph: a.graph.
+			Append(passThrowGraph(a.Out(), flow.In())).
+			Append(flow.getGraph()),
 	}
 }
 func (a *sourceImpl) To(sink Sink) Runnable {
-	a.graphs = append(a.graphs, &graph{
-		id:   "source to",
-		from: a.getOut(),
-		to:   sink.getIn(),
-		task: emptyTaskFunc,
-	})
-	a.graphs = append(a.graphs, sink.getGraphs()...)
 	return &runnableImpl{
-		graphs: a.graphs,
-		left:   a.getLeft(),
-		right:  sink.getRight(),
+		graph: a.graph.
+			Append(passThrowGraph(a.Out(), sink.In())).
+			Append(sink.getGraph()),
 	}
 }
-func (a *sourceImpl) getOut() Queue {
+func (a *sourceImpl) Out() Queue {
 	return a.out
 }
-func (a *sourceImpl) getLeft() interface{} {
-	return a.left
-}
-func (a *sourceImpl) getGraphs() graphs {
-	return a.graphs
+func (a *sourceImpl) getGraph() *graph {
+	return a.graph
 }

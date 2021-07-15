@@ -1,54 +1,113 @@
 package gooastream
 
-import "context"
+import (
+	"context"
+)
 
 type (
-	Graph interface {
-		getGraphs() graphs
-	}
 	graph struct {
-		id   string
+		wires []*wire
+	}
+
+	Graph interface {
+		getGraph() *graph
+	}
+
+	Mat uint8
+	//
+	//TraversalBuilder interface {
+	//	Append(TraversalBuilder, Mat) TraversalBuilder
+	//	Run(ctx context.Context, cancel context.CancelFunc)
+	//
+	//	Inlet() Inlet
+	//	Outlet() Outlet
+	//	Wires() []*wire
+	//	Inlets() int
+	//	Outlets() int
+	//}
+
+	wire struct {
 		from OutQueue
 		to   InQueue
 		task func(interface{}) (interface{}, error)
 	}
-	graphs []*graph
+)
+
+const (
+	MatNone Mat = iota
+	MatLeft
+	MatRight
+	MatBoth
 )
 
 var emptyTaskFunc = func(i interface{}) (interface{}, error) {
 	return i, nil
 }
 
-func (a graphs) run(ctx context.Context, cancel func()) {
-	for _, v := range a {
-		go v.run(ctx, cancel)
+func emptyGraph() *graph {
+	return &graph{
+		wires: []*wire{},
 	}
 }
-func (a *graph) run(ctx context.Context, cancel func()) {
-	defer func() {
-		// 先にGraphを止めてからQueueを止める
-		cancel()
-		a.from.Close()
-		a.to.Close()
-	}()
-T:
-	for {
-		select {
-		case <-ctx.Done():
-			break T
-		default:
-			v, err := a.from.Pop(ctx)
-			if err != nil {
-				break T
+
+func passThrowGraph(from OutQueue, to InQueue) *graph {
+	return &graph{
+		wires: []*wire{
+			{
+				from: from,
+				to:   to,
+				task: emptyTaskFunc,
+			},
+		},
+	}
+}
+
+func mapGraph(from OutQueue, to InQueue, f func(interface{}) (interface{}, error)) *graph {
+	return &graph{
+		wires: []*wire{
+			{
+				from: from,
+				to:   to,
+				task: f,
+			},
+		},
+	}
+}
+
+func (a *graph) Append(child *graph) *graph {
+	return &graph{wires: append(a.wires, child.wires...)}
+}
+
+// non blocking
+func (a *graph) Run(ctx context.Context, cancel context.CancelFunc) {
+	for _, wire := range a.wires {
+		go func(from OutQueue, to InQueue, task func(interface{}) (interface{}, error)) {
+			defer func() {
+				// 先にGraphを止めてからQueueを止める
+				cancel()
+				from.Close()
+				to.Close()
+			}()
+		T:
+			for {
+				select {
+				case <-ctx.Done():
+					break T
+				default:
+					v, err := from.Pop(ctx)
+					if err != nil {
+						break T
+					}
+					r, err := task(v)
+					if err != nil {
+						break T
+					}
+					err = to.Push(ctx, r)
+					if err != nil {
+						break T
+					}
+				}
 			}
-			r, err := a.task(v)
-			if err != nil {
-				break T
-			}
-			err = a.to.Push(ctx, r)
-			if err != nil {
-				break T
-			}
-		}
+		}(wire.from, wire.to, wire.task)
 	}
 }

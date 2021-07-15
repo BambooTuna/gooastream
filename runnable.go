@@ -11,26 +11,16 @@ type (
 
 	Cancel   func()
 	Runnable interface {
-		Run(ctx context.Context) (Left, Right, Done, Cancel)
-		LeftOutput
-		RightOutput
+		Run(ctx context.Context) (Done, Cancel)
 	}
 
 	runnableImpl struct {
-		graphs      graphs
-		left, right interface{}
+		graph *graph
 	}
 )
 
-func (a *runnableImpl) Run(ctx context.Context) (Left, Right, Done, Cancel) {
+func (a *runnableImpl) Run(ctx context.Context) (Done, Cancel) {
 	ctx, cancel := context.WithCancel(ctx)
-	a.graphs.run(ctx, cancel)
-	return a.getLeft(), a.getRight(), func() { <-ctx.Done() }, Cancel(cancel)
-}
-
-func (a *runnableImpl) getLeft() interface{} {
-	return a.left
-}
-func (a *runnableImpl) getRight() interface{} {
-	return a.right
+	a.graph.Run(ctx, cancel)
+	return func() { <-ctx.Done() }, Cancel(cancel)
 }
