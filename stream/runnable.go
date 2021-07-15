@@ -1,7 +1,8 @@
-package gooastream
+package stream
 
 import (
 	"context"
+	"github.com/BambooTuna/gooastream/builder"
 )
 
 type (
@@ -15,12 +16,12 @@ type (
 	}
 
 	runnableImpl struct {
-		graph *graph
+		graphTree builder.GraphTree
 	}
 )
 
 func (a *runnableImpl) Run(ctx context.Context) (Done, Cancel) {
 	ctx, cancel := context.WithCancel(ctx)
-	a.graph.Run(ctx, cancel)
+	a.graphTree.Run(ctx, cancel)
 	return func() { <-ctx.Done() }, Cancel(cancel)
 }

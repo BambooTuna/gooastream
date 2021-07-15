@@ -1,16 +1,19 @@
-package gooastream
+package builder
 
 import (
 	"context"
+	"github.com/BambooTuna/gooastream/queue"
 )
 
 type (
-	graph struct {
-		wires []*wire
+	GraphTree interface {
+		Append(GraphTree) GraphTree
+		Run(ctx context.Context, cancel context.CancelFunc)
+		getWires() []*wire
 	}
 
-	Graph interface {
-		getGraph() *graph
+	GraphNode interface {
+		GraphTree() GraphTree
 	}
 
 	Mat uint8
@@ -27,9 +30,13 @@ type (
 	//}
 
 	wire struct {
-		from OutQueue
-		to   InQueue
+		from queue.OutQueue
+		to   queue.InQueue
 		task func(interface{}) (interface{}, error)
+	}
+
+	graphTree struct {
+		wires []*wire
 	}
 )
 
@@ -44,14 +51,14 @@ var emptyTaskFunc = func(i interface{}) (interface{}, error) {
 	return i, nil
 }
 
-func emptyGraph() *graph {
-	return &graph{
+func EmptyGraph() GraphTree {
+	return &graphTree{
 		wires: []*wire{},
 	}
 }
 
-func passThrowGraph(from OutQueue, to InQueue) *graph {
-	return &graph{
+func PassThrowGraph(from queue.OutQueue, to queue.InQueue) GraphTree {
+	return &graphTree{
 		wires: []*wire{
 			{
 				from: from,
@@ -62,8 +69,8 @@ func passThrowGraph(from OutQueue, to InQueue) *graph {
 	}
 }
 
-func mapGraph(from OutQueue, to InQueue, f func(interface{}) (interface{}, error)) *graph {
-	return &graph{
+func MapGraph(from queue.OutQueue, to queue.InQueue, f func(interface{}) (interface{}, error)) GraphTree {
+	return &graphTree{
 		wires: []*wire{
 			{
 				from: from,
@@ -74,14 +81,14 @@ func mapGraph(from OutQueue, to InQueue, f func(interface{}) (interface{}, error
 	}
 }
 
-func (a *graph) Append(child *graph) *graph {
-	return &graph{wires: append(a.wires, child.wires...)}
+func (a *graphTree) Append(child GraphTree) GraphTree {
+	return &graphTree{wires: append(a.wires, child.getWires()...)}
 }
 
 // non blocking
-func (a *graph) Run(ctx context.Context, cancel context.CancelFunc) {
+func (a *graphTree) Run(ctx context.Context, cancel context.CancelFunc) {
 	for _, wire := range a.wires {
-		go func(from OutQueue, to InQueue, task func(interface{}) (interface{}, error)) {
+		go func(from queue.OutQueue, to queue.InQueue, task func(interface{}) (interface{}, error)) {
 			defer func() {
 				// 先にGraphを止めてからQueueを止める
 				cancel()
@@ -110,4 +117,8 @@ func (a *graph) Run(ctx context.Context, cancel context.CancelFunc) {
 			}
 		}(wire.from, wire.to, wire.task)
 	}
+}
+
+func (a *graphTree) getWires() []*wire {
+	return a.wires
 }

@@ -1,4 +1,9 @@
-package gooastream
+package stream
+
+import (
+	"github.com/BambooTuna/gooastream/builder"
+	"github.com/BambooTuna/gooastream/queue"
+)
 
 type (
 	Flow interface {
@@ -7,13 +12,13 @@ type (
 
 		Inlet
 		Outlet
-		Graph
+		builder.GraphNode
 	}
 
 	flowImpl struct {
-		in    Queue
-		out   Queue
-		graph *graph
+		in        queue.Queue
+		out       queue.Queue
+		graphTree builder.GraphTree
 	}
 	//balancerFlowImpl struct {
 	//	id     string
@@ -164,12 +169,12 @@ type (
 var _ Flow = (*flowImpl)(nil)
 
 func NewBufferFlow(buffer int) Flow {
-	in := NewQueueEmpty(buffer)
-	out := NewQueueEmpty(buffer)
+	in := queue.NewQueueEmpty(buffer)
+	out := queue.NewQueueEmpty(buffer)
 	return &flowImpl{
-		in:    in,
-		out:   out,
-		graph: passThrowGraph(in, out),
+		in:        in,
+		out:       out,
+		graphTree: builder.PassThrowGraph(in, out),
 	}
 }
 
@@ -188,9 +193,10 @@ func NewBufferFlow(buffer int) Flow {
 */
 func NewFlowFromSinkAndSource(sink Sink, source Source) Flow {
 	return &flowImpl{
-		in:    sink.In(),
-		out:   source.Out(),
-		graph: sink.getGraph().Append(source.getGraph()),
+		in:  sink.In(),
+		out: source.Out(),
+		graphTree: sink.GraphTree().
+			Append(source.GraphTree()),
 	}
 }
 
@@ -198,25 +204,25 @@ func (a *flowImpl) Via(flow Flow) Flow {
 	return &flowImpl{
 		in:  a.In(),
 		out: flow.Out(),
-		graph: a.graph.
-			Append(passThrowGraph(a.Out(), flow.In())).
-			Append(flow.getGraph()),
+		graphTree: a.GraphTree().
+			Append(builder.PassThrowGraph(a.Out(), flow.In())).
+			Append(flow.GraphTree()),
 	}
 }
 func (a *flowImpl) To(sink Sink) Sink {
 	return &sinkImpl{
 		in: a.In(),
-		graph: a.graph.
-			Append(passThrowGraph(a.Out(), sink.In())).
-			Append(sink.getGraph()),
+		graphTree: a.GraphTree().
+			Append(builder.PassThrowGraph(a.Out(), sink.In())).
+			Append(sink.GraphTree()),
 	}
 }
-func (a *flowImpl) In() Queue {
+func (a *flowImpl) In() queue.Queue {
 	return a.in
 }
-func (a *flowImpl) Out() Queue {
+func (a *flowImpl) Out() queue.Queue {
 	return a.out
 }
-func (a *flowImpl) getGraph() *graph {
-	return a.graph
+func (a *flowImpl) GraphTree() builder.GraphTree {
+	return a.graphTree
 }
