@@ -42,11 +42,12 @@ type (
 	}
 )
 
-type (
-	GraphBuilder struct {
-		graphTree *stream.GraphTree
-	}
+// GraphBuilder is useful for creating complex processing graphs.
+type GraphBuilder struct {
+	graphTree *stream.GraphTree
+}
 
+type (
 	sourceShape struct {
 		outlet *Outlet
 	}
