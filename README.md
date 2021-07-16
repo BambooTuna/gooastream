@@ -48,6 +48,7 @@ merge.Out().Wire(sink.In())
     Pass the element once in a certain time.
   
 - MapFlow
+- FilterFlow
 - FlowFromSinkAndSource
 
 - Sink
@@ -57,7 +58,7 @@ etc...
 
 ## Install
 ```bash
-$ go get github.com/BambooTuna/gooastream@v1.1.1
+$ go get github.com/BambooTuna/gooastream@v1.1.2
 ```
 
 ## Usage
