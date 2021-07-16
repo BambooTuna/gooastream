@@ -69,6 +69,8 @@ func ExampleNewNatsFlow() {
 	done()
 
 	// Output:
+
+	// TODO: run nats server and check output
 	// subject1 data1
 	// subject1 data2
 	// subject2 data3
