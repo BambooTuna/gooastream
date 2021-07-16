@@ -73,7 +73,3 @@ func (a webSocketFlow) Out() queue.Queue {
 func (a webSocketFlow) GraphTree() *stream.GraphTree {
 	return a.graphTree
 }
-
-func (a webSocketFlow) connect(ctx context.Context) {
-
-}
