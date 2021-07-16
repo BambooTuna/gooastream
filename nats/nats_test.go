@@ -1,16 +1,15 @@
-package examples
+package nats
 
 import (
 	"context"
 	"fmt"
-	ns "github.com/BambooTuna/gooastream/nats"
 	"github.com/BambooTuna/gooastream/stream"
 	"github.com/nats-io/nats.go"
 	"sync"
 	"time"
 )
 
-func NatsStream() {
+func ExampleNewNatsFlow() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*1)
 	defer cancel()
 
@@ -45,13 +44,13 @@ func NatsStream() {
 	if err != nil {
 		return
 	}
-	flow := ns.NewNatsFlow(
+	flow := NewNatsFlow(
 		ctx,
-		&ns.SourceConfig{
+		&SourceConfig{
 			Subjects: []string{"subject1", "subject2"},
 			Buffer:   0,
 		},
-		&ns.SinkConfig{
+		&SinkConfig{
 			ByteSubject: "default",
 			Buffer:      0,
 		},
