@@ -48,6 +48,20 @@ func NewChannelSource(buffer int) (SourceChannel, Source) {
 }
 
 /*
+	NewInfiniteSource
+	Create a Source with a element.
+	Have no input port and one output port.
+	Infinitely pass elements downstream.
+*/
+func NewInfiniteSource(element interface{}) Source {
+	out := queue.NewInfiniteElement(element)
+	return &sourceImpl{
+		out:       out,
+		graphTree: EmptyGraph(),
+	}
+}
+
+/*
 	NewSliceSource
 	Create a Source with a buffer.
 	Have no input port and one output port.

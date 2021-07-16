@@ -44,6 +44,11 @@ func NewQueueEmpty(size int) Queue {
 		q: NewMailbox(size),
 	}
 }
+func NewInfiniteElement(element interface{}) Queue {
+	return &queueImpl{
+		q: NewMailboxInfinite(element),
+	}
+}
 func (a *queueImpl) Pop(ctx context.Context) (interface{}, error) {
 	return a.q.DequeueOrWaitForElement(ctx)
 }
