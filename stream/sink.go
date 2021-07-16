@@ -39,12 +39,12 @@ func NewSink(task func(interface{}) error) Sink {
 }
 
 /*
-	IgnoreSink
+	NewIgnoreSink
 	Create a Sink.
 	Have one input port and no output port.
 	This Sink just throws away the data it receives.
 */
-func IgnoreSink() Sink {
+func NewIgnoreSink() Sink {
 	in := queue.NewQueueEmpty(0)
 	out := queue.NewQueueSink(func(interface{}) error { return nil })
 	return &sinkImpl{
