@@ -125,8 +125,8 @@ func ComplexConstructedStream()  {
 
 	/*
 		source ~> balance ~> merge ~> sink
-				  balance ~> merge
-				  balance ~> garbageSink
+		          balance ~> merge
+		          balance ~> garbageSink
 	*/
 	source.Out().Wire(balance.In())
 	balance.Out()[0].Wire(merge.In()[0])
