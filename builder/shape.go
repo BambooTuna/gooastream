@@ -95,7 +95,20 @@ func (a *GraphBuilder) AddSink(stream stream.Sink) SinkShape {
 	return newSinkShape(stream)
 }
 func (a *GraphBuilder) ToRunnable() stream.Runnable {
+	// TODO check all added stream is connected
 	return stream.NewRunnable(a.graphTree)
+}
+func (a *GraphBuilder) ToSource(out *Outlet) stream.Source {
+	// TODO check all added stream is connected
+	return stream.BuildSource(out.out, a.graphTree)
+}
+func (a *GraphBuilder) ToFlow(in *Inlet, out *Outlet) stream.Flow {
+	// TODO check all added stream is connected
+	return stream.BuildFlow(in.in, out.out, a.graphTree)
+}
+func (a *GraphBuilder) ToSink(in *Inlet) stream.Sink {
+	// TODO check all added stream is connected
+	return stream.BuildSink(in.in, a.graphTree)
 }
 
 func (a *Outlet) Wire(inlet *Inlet) {

@@ -1,8 +1,7 @@
-package std
+package stream
 
 import (
 	"github.com/BambooTuna/gooastream/queue"
-	"github.com/BambooTuna/gooastream/stream"
 )
 
 type (
@@ -13,48 +12,55 @@ type (
 
 	sourceImpl struct {
 		out       queue.Queue
-		graphTree *stream.GraphTree
+		graphTree *GraphTree
 		left      interface{}
 	}
 )
 
-var _ stream.Source = (*sourceImpl)(nil)
+var _ Source = (*sourceImpl)(nil)
 
-func NewChannelSource(buffer int) (SourceRef, stream.Source) {
+func BuildSource(out queue.Queue, graphTree *GraphTree) Source {
+	return &sourceImpl{
+		out:       out,
+		graphTree: graphTree,
+	}
+}
+
+func NewChannelSource(buffer int) (SourceRef, Source) {
 	in := queue.NewQueueEmpty(buffer)
 	out := queue.NewQueueEmpty(buffer)
 	return in, &sourceImpl{
 		out:       out,
-		graphTree: stream.PassThrowGraph(in, out),
+		graphTree: PassThrowGraph(in, out),
 	}
 }
 
-func NewSource(list []interface{}, buffer int) stream.Source {
+func NewSource(list []interface{}, buffer int) Source {
 	in := queue.NewQueueSlice(list)
 	out := queue.NewQueueEmpty(buffer)
 	return &sourceImpl{
 		out:       out,
-		graphTree: stream.PassThrowGraph(in, out),
+		graphTree: PassThrowGraph(in, out),
 	}
 }
-func (a *sourceImpl) Via(flow stream.Flow) stream.Source {
+func (a *sourceImpl) Via(flow Flow) Source {
 	return &sourceImpl{
 		out: flow.Out(),
 		graphTree: a.GraphTree().
-			Append(stream.PassThrowGraph(a.Out(), flow.In())).
+			Append(PassThrowGraph(a.Out(), flow.In())).
 			Append(flow.GraphTree()),
 	}
 }
-func (a *sourceImpl) To(sink stream.Sink) stream.Runnable {
-	return stream.NewRunnable(
+func (a *sourceImpl) To(sink Sink) Runnable {
+	return NewRunnable(
 		a.GraphTree().
-			Append(stream.PassThrowGraph(a.Out(), sink.In())).
+			Append(PassThrowGraph(a.Out(), sink.In())).
 			Append(sink.GraphTree()),
 	)
 }
 func (a *sourceImpl) Out() queue.Queue {
 	return a.out
 }
-func (a *sourceImpl) GraphTree() *stream.GraphTree {
+func (a *sourceImpl) GraphTree() *GraphTree {
 	return a.graphTree
 }

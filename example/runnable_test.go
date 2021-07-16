@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/BambooTuna/gooastream/builder"
-	"github.com/BambooTuna/gooastream/std"
+	"github.com/BambooTuna/gooastream/stream"
 	"github.com/stretchr/testify/require"
 	"sync"
 	"testing"
@@ -26,9 +26,9 @@ func Test_BufferFlow(t *testing.T) {
 	for i := 0; i < n; i++ {
 		list[i] = i
 	}
-	source := std.NewSource(list, 100)
-	flow := std.NewBufferFlow(10)
-	sink := std.NewSink(func(i interface{}) error {
+	source := stream.NewSource(list, 100)
+	flow := stream.NewBufferFlow(10)
+	sink := stream.NewSink(func(i interface{}) error {
 		fmt.Println(i)
 		wg.Done()
 		return nil
@@ -58,35 +58,33 @@ func Test_GraphBuilder(t *testing.T) {
 		list[i] = i
 	}
 	graphBuilder := builder.NewGraphBuilder()
-
-	source := graphBuilder.AddSource(std.NewSource(list, 100))
-	balance := graphBuilder.AddBalance(std.NewBalance(3))
-	merge := graphBuilder.AddMerge(std.NewMerge(2))
-	sink := graphBuilder.AddSink(std.NewSink(func(i interface{}) error {
-		fmt.Println(i)
-		wg.Done()
-		return nil
-	}, 0))
-	garbage := graphBuilder.AddSink(std.NewSink(func(i interface{}) error {
+	source := graphBuilder.AddSource(stream.NewSource(list, 100))
+	balance := graphBuilder.AddBalance(builder.NewBalance(3))
+	merge := graphBuilder.AddMerge(builder.NewMerge(2))
+	garbage := graphBuilder.AddSink(stream.NewSink(func(i interface{}) error {
 		fmt.Println("garbage", i)
 		wg.Done()
 		return nil
 	}, 0))
 
 	/*
-		source ~> balance ~> merge ~> sink
+		source ~> balance ~> merge ~>
 				  balance ~> merge
 				  balance ~> garbage
 	*/
 	source.Out().Wire(balance.In())
-
 	balance.Out()[0].Wire(merge.In()[0])
 	balance.Out()[1].Wire(merge.In()[1])
 	balance.Out()[2].Wire(garbage.In())
 
-	merge.Out().Wire(sink.In())
+	buildSource := graphBuilder.ToSource(merge.Out())
+	sink := stream.NewSink(func(i interface{}) error {
+		fmt.Println(i)
+		wg.Done()
+		return nil
+	}, 0)
 
-	runnable := graphBuilder.ToRunnable()
+	runnable := buildSource.To(sink)
 	done, runningCancel := runnable.Run(ctx)
 	go func() {
 		wg.Wait()
@@ -109,17 +107,17 @@ func Test_FlowFromSinkAndSource(t *testing.T) {
 	for i := 0; i < n; i++ {
 		list[i] = i
 	}
-	source := std.NewSource(list, 100)
-	sink := std.NewSink(func(i interface{}) error {
+	source := stream.NewSource(list, 100)
+	sink := stream.NewSink(func(i interface{}) error {
 		fmt.Println("up", i)
 		wg.Done()
 		return nil
 	}, 0)
-	flow := std.NewFlowFromSinkAndSource(std.NewSink(func(i interface{}) error {
+	flow := stream.NewFlowFromSinkAndSource(stream.NewSink(func(i interface{}) error {
 		fmt.Println("down", i)
 		wg.Done()
 		return nil
-	}, 0), std.NewSource(list, 0))
+	}, 0), stream.NewSource(list, 0))
 
 	runnable := source.Via(flow).To(sink)
 	done, runningCancel := runnable.Run(ctx)
