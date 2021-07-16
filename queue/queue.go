@@ -1,4 +1,4 @@
-package gooastream
+package queue
 
 import (
 	"context"
