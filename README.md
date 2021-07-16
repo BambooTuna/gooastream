@@ -57,7 +57,7 @@ etc...
 
 ## Install
 ```bash
-$ go get github.com/BambooTuna/gooastream@v2.3.0
+$ go get github.com/BambooTuna/gooastream@v1.1.1
 ```
 
 ## Usage
