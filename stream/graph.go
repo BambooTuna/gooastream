@@ -1,4 +1,4 @@
-package builder
+package stream
 
 import (
 	"context"
@@ -6,37 +6,14 @@ import (
 )
 
 type (
-	GraphTree interface {
-		Append(GraphTree) GraphTree
-		Run(ctx context.Context, cancel context.CancelFunc)
-		getWires() []*wire
+	Mat       uint8
+	GraphTree struct {
+		wires []*wire
 	}
-
-	GraphNode interface {
-		GraphTree() GraphTree
-	}
-
-	Mat uint8
-	//
-	//TraversalBuilder interface {
-	//	Append(TraversalBuilder, Mat) TraversalBuilder
-	//	Run(ctx context.Context, cancel context.CancelFunc)
-	//
-	//	Inlet() Inlet
-	//	Outlet() Outlet
-	//	Wires() []*wire
-	//	Inlets() int
-	//	Outlets() int
-	//}
-
 	wire struct {
 		from queue.OutQueue
 		to   queue.InQueue
 		task func(interface{}) (interface{}, error)
-	}
-
-	graphTree struct {
-		wires []*wire
 	}
 )
 
@@ -51,14 +28,14 @@ var emptyTaskFunc = func(i interface{}) (interface{}, error) {
 	return i, nil
 }
 
-func EmptyGraph() GraphTree {
-	return &graphTree{
+func EmptyGraph() *GraphTree {
+	return &GraphTree{
 		wires: []*wire{},
 	}
 }
 
-func PassThrowGraph(from queue.OutQueue, to queue.InQueue) GraphTree {
-	return &graphTree{
+func PassThrowGraph(from queue.OutQueue, to queue.InQueue) *GraphTree {
+	return &GraphTree{
 		wires: []*wire{
 			{
 				from: from,
@@ -69,8 +46,8 @@ func PassThrowGraph(from queue.OutQueue, to queue.InQueue) GraphTree {
 	}
 }
 
-func MapGraph(from queue.OutQueue, to queue.InQueue, f func(interface{}) (interface{}, error)) GraphTree {
-	return &graphTree{
+func MapGraph(from queue.OutQueue, to queue.InQueue, f func(interface{}) (interface{}, error)) *GraphTree {
+	return &GraphTree{
 		wires: []*wire{
 			{
 				from: from,
@@ -81,12 +58,16 @@ func MapGraph(from queue.OutQueue, to queue.InQueue, f func(interface{}) (interf
 	}
 }
 
-func (a *graphTree) Append(child GraphTree) GraphTree {
-	return &graphTree{wires: append(a.wires, child.getWires()...)}
+func (a *GraphTree) Append(child *GraphTree) *GraphTree {
+	return &GraphTree{wires: append(a.wires, child.wires...)}
+}
+
+func (a *GraphTree) Add(child *GraphTree) {
+	a.wires = append(a.wires, child.wires...)
 }
 
 // non blocking
-func (a *graphTree) Run(ctx context.Context, cancel context.CancelFunc) {
+func (a *GraphTree) Run(ctx context.Context, cancel context.CancelFunc) {
 	for _, wire := range a.wires {
 		go func(from queue.OutQueue, to queue.InQueue, task func(interface{}) (interface{}, error)) {
 			defer func() {
@@ -117,8 +98,4 @@ func (a *graphTree) Run(ctx context.Context, cancel context.CancelFunc) {
 			}
 		}(wire.from, wire.to, wire.task)
 	}
-}
-
-func (a *graphTree) getWires() []*wire {
-	return a.wires
 }

@@ -1,8 +1,10 @@
-package stream
+package example
 
 import (
 	"context"
 	"fmt"
+	"github.com/BambooTuna/gooastream/builder"
+	"github.com/BambooTuna/gooastream/std"
 	"github.com/stretchr/testify/require"
 	"sync"
 	"testing"
@@ -24,15 +26,67 @@ func Test_BufferFlow(t *testing.T) {
 	for i := 0; i < n; i++ {
 		list[i] = i
 	}
-	source := NewSource(list, 100)
-	flow := NewBufferFlow(10)
-	sink := NewSink(func(i interface{}) error {
+	source := std.NewSource(list, 100)
+	flow := std.NewBufferFlow(10)
+	sink := std.NewSink(func(i interface{}) error {
 		fmt.Println(i)
 		wg.Done()
 		return nil
 	}, 0)
 
 	runnable := source.Via(flow).To(sink)
+	done, runningCancel := runnable.Run(ctx)
+	go func() {
+		wg.Wait()
+		runningCancel()
+	}()
+
+	// runningCancel()が呼ばれるまでブロック
+	done()
+	require.NoError(t, ctx.Err())
+}
+
+func Test_GraphBuilder(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	var wg sync.WaitGroup
+
+	n := 100
+	list := make([]interface{}, n)
+	wg.Add(n)
+	for i := 0; i < n; i++ {
+		list[i] = i
+	}
+	graphBuilder := builder.NewGraphBuilder()
+
+	source := graphBuilder.AddSource(std.NewSource(list, 100))
+	balance := graphBuilder.AddBalance(std.NewBalance(3))
+	merge := graphBuilder.AddMerge(std.NewMerge(2))
+	sink := graphBuilder.AddSink(std.NewSink(func(i interface{}) error {
+		fmt.Println(i)
+		wg.Done()
+		return nil
+	}, 0))
+	garbage := graphBuilder.AddSink(std.NewSink(func(i interface{}) error {
+		fmt.Println("garbage", i)
+		wg.Done()
+		return nil
+	}, 0))
+
+	/*
+		source ~> balance ~> merge ~> sink
+				  balance ~> merge
+				  balance ~> garbage
+	*/
+	source.Out().Wire(balance.In())
+
+	balance.Out()[0].Wire(merge.In()[0])
+	balance.Out()[1].Wire(merge.In()[1])
+	balance.Out()[2].Wire(garbage.In())
+
+	merge.Out().Wire(sink.In())
+
+	runnable := graphBuilder.ToRunnable()
 	done, runningCancel := runnable.Run(ctx)
 	go func() {
 		wg.Wait()
@@ -55,17 +109,17 @@ func Test_FlowFromSinkAndSource(t *testing.T) {
 	for i := 0; i < n; i++ {
 		list[i] = i
 	}
-	source := NewSource(list, 100)
-	sink := NewSink(func(i interface{}) error {
+	source := std.NewSource(list, 100)
+	sink := std.NewSink(func(i interface{}) error {
 		fmt.Println("up", i)
 		wg.Done()
 		return nil
 	}, 0)
-	flow := NewFlowFromSinkAndSource(NewSink(func(i interface{}) error {
+	flow := std.NewFlowFromSinkAndSource(std.NewSink(func(i interface{}) error {
 		fmt.Println("down", i)
 		wg.Done()
 		return nil
-	}, 0), NewSource(list, 0))
+	}, 0), std.NewSource(list, 0))
 
 	runnable := source.Via(flow).To(sink)
 	done, runningCancel := runnable.Run(ctx)
