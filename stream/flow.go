@@ -42,6 +42,22 @@ func NewBufferFlow(buffer int) Flow {
 }
 
 /*
+	NewMapFlow
+	Create a Flow with a buffer and map function.
+	Have one input port and one output port.
+	Pass the result of passing the data of upstream through the function to downstream.
+*/
+func NewMapFlow(f func(interface{}) (interface{}, error), buffer int) Flow {
+	in := queue.NewQueueEmpty(buffer)
+	out := queue.NewQueueEmpty(buffer)
+	return &flowImpl{
+		in:        in,
+		out:       out,
+		graphTree: MapGraph(in, out, f),
+	}
+}
+
+/*
 	FlowFromSinkAndSource
 	Create a Flow from Sink and Source.
 	Have one input port and one output port.
