@@ -70,6 +70,31 @@ func NewMapFlow(f func(interface{}) (interface{}, error), buffer int) Flow {
 }
 
 /*
+	NewFilterFlow
+	Create a Flow with a filter function.
+	Have one input port and one output port.
+	Only allow elements to go downstream.
+*/
+func NewFilterFlow(f func(interface{}) (bool, error)) Flow {
+	in := queue.NewQueueEmpty(0)
+	out := queue.NewQueueEmpty(0)
+	return &flowImpl{
+		in:  in,
+		out: out,
+		graphTree: MapGraph(in, out, func(i interface{}) (interface{}, error) {
+			ok, err := f(i)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				return nil, PassPermissionError
+			}
+			return i, nil
+		}),
+	}
+}
+
+/*
 	FlowFromSinkAndSource
 	Create a Flow from Sink and Source.
 	Have one input port and one output port.

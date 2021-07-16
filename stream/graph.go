@@ -2,6 +2,8 @@ package stream
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"github.com/BambooTuna/gooastream/queue"
 	"time"
 )
@@ -30,6 +32,7 @@ type wire struct {
 	task     func(interface{}) (interface{}, error)
 }
 
+var PassPermissionError = fmt.Errorf("pass permission error")
 var emptyTaskFunc = func(i interface{}) (interface{}, error) {
 	return i, nil
 }
@@ -141,6 +144,9 @@ T:
 			}
 			r, err := task(v)
 			if err != nil {
+				if errors.Is(err, PassPermissionError) {
+					continue
+				}
 				break T
 			}
 			err = to.Push(ctx, r)
@@ -166,6 +172,9 @@ T:
 			}
 			r, err := task(v)
 			if err != nil {
+				if errors.Is(err, PassPermissionError) {
+					continue
+				}
 				break T
 			}
 			err = to.Push(ctx, r)
