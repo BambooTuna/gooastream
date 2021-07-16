@@ -2,6 +2,7 @@ package stream
 
 import (
 	"github.com/BambooTuna/gooastream/queue"
+	"time"
 )
 
 type flowImpl struct {
@@ -32,12 +33,23 @@ func BuildFlow(in, out queue.Queue, graphTree *GraphTree) Flow {
 	If the downstream is clogged, it will accumulate in the buffer.
 */
 func NewBufferFlow(buffer int) Flow {
-	in := queue.NewQueueEmpty(buffer)
-	out := queue.NewQueueEmpty(buffer)
+	return NewThrottleFlow(0, buffer, buffer)
+}
+
+/*
+	NewThrottleFlow
+	Create a Flow with a buffer.
+	Have one input port and one output port.
+	Once in a certain period pass the data between upstream and downstream.
+	If throttle time.Duration is 0 or less, the behavior is the same as pass-through.
+*/
+func NewThrottleFlow(throttle time.Duration, inBuffer, outBuffer int) Flow {
+	in := queue.NewQueueEmpty(inBuffer)
+	out := queue.NewQueueEmpty(outBuffer)
 	return &flowImpl{
 		in:        in,
 		out:       out,
-		graphTree: PassThrowGraph(in, out),
+		graphTree: ThrottleGraph(in, out, throttle),
 	}
 }
 

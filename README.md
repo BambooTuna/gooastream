@@ -26,9 +26,38 @@ balance.Out()[2].Wire(garbageSink.In())
 merge.Out().Wire(sink.In())
 ```
 
+## Convenient unit
+- ChannelSource 
+  
+    Input to the channel is the source.
+  
+- InfiniteSource
+  
+    The set elements spring up infinitely.
+  
+- SliceSource
+
+    The element of the slice becomes the source.
+  
+- BufferFlow
+
+    Flow with buffer.
+  
+- ThrottleFlow
+
+    Pass the element once in a certain time.
+  
+- MapFlow
+- FlowFromSinkAndSource
+
+- Sink
+- IgnoreSink
+
+etc...
+
 ## Install
 ```bash
-$ go get github.com/BambooTuna/gooastream@v2.0.0
+$ go get github.com/BambooTuna/gooastream@v2.3.0
 ```
 
 ## Usage

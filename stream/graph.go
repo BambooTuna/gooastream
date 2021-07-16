@@ -3,6 +3,7 @@ package stream
 import (
 	"context"
 	"github.com/BambooTuna/gooastream/queue"
+	"time"
 )
 
 // Mat
@@ -23,9 +24,10 @@ type GraphTree struct {
 }
 
 type wire struct {
-	from queue.OutQueue
-	to   queue.InQueue
-	task func(interface{}) (interface{}, error)
+	from     queue.OutQueue
+	to       queue.InQueue
+	throttle time.Duration
+	task     func(interface{}) (interface{}, error)
 }
 
 var emptyTaskFunc = func(i interface{}) (interface{}, error) {
@@ -48,12 +50,22 @@ func EmptyGraph() *GraphTree {
 	Just pass the data between from queue.OutQueue and to queue.InQueue.
 */
 func PassThrowGraph(from queue.OutQueue, to queue.InQueue) *GraphTree {
+	return ThrottleGraph(from, to, 0)
+}
+
+/*
+	ThrottleGraph
+	Create a GraphTree with from queue.OutQueue, to queue.InQueue and throttle.
+	Once in a certain period, pass the data between from queue.OutQueue and to queue.InQueue.
+*/
+func ThrottleGraph(from queue.OutQueue, to queue.InQueue, throttle time.Duration) *GraphTree {
 	return &GraphTree{
 		wires: []*wire{
 			{
-				from: from,
-				to:   to,
-				task: emptyTaskFunc,
+				from:     from,
+				to:       to,
+				throttle: throttle,
+				task:     emptyTaskFunc,
 			},
 		},
 	}
@@ -100,33 +112,66 @@ func (a *GraphTree) Add(child *GraphTree) {
 */
 func (a *GraphTree) Run(ctx context.Context, cancel context.CancelFunc) {
 	for _, wire := range a.wires {
-		go func(from queue.OutQueue, to queue.InQueue, task func(interface{}) (interface{}, error)) {
+		go func(from queue.OutQueue, to queue.InQueue, throttle time.Duration, task func(interface{}) (interface{}, error)) {
 			defer func() {
 				// 先にGraphを止めてからQueueを止める
 				cancel()
 				from.Close()
 				to.Close()
 			}()
-		T:
-			for {
-				select {
-				case <-ctx.Done():
-					break T
-				default:
-					v, err := from.Pop(ctx)
-					if err != nil {
-						break T
-					}
-					r, err := task(v)
-					if err != nil {
-						break T
-					}
-					err = to.Push(ctx, r)
-					if err != nil {
-						break T
-					}
-				}
+			if throttle > 0 {
+				throttler(ctx, from, to, throttle, task)
+			} else {
+				passThrow(ctx, from, to, task)
 			}
-		}(wire.from, wire.to, wire.task)
+		}(wire.from, wire.to, wire.throttle, wire.task)
+	}
+}
+
+func passThrow(ctx context.Context, from queue.OutQueue, to queue.InQueue, task func(interface{}) (interface{}, error)) {
+T:
+	for {
+		select {
+		case <-ctx.Done():
+			break T
+		default:
+			v, err := from.Pop(ctx)
+			if err != nil {
+				break T
+			}
+			r, err := task(v)
+			if err != nil {
+				break T
+			}
+			err = to.Push(ctx, r)
+			if err != nil {
+				break T
+			}
+		}
+	}
+}
+
+func throttler(ctx context.Context, from queue.OutQueue, to queue.InQueue, throttle time.Duration, task func(interface{}) (interface{}, error)) {
+	ticker := time.NewTicker(throttle)
+	defer ticker.Stop()
+T:
+	for range ticker.C {
+		select {
+		case <-ctx.Done():
+			break T
+		default:
+			v, err := from.Pop(ctx)
+			if err != nil {
+				break T
+			}
+			r, err := task(v)
+			if err != nil {
+				break T
+			}
+			err = to.Push(ctx, r)
+			if err != nil {
+				break T
+			}
+		}
 	}
 }
