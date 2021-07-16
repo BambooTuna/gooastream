@@ -17,7 +17,6 @@ type SourceChannel interface {
 type sourceImpl struct {
 	out       queue.Queue
 	graphTree *GraphTree
-	left      interface{}
 }
 
 var _ Source = (*sourceImpl)(nil)
@@ -41,11 +40,10 @@ func BuildSource(out queue.Queue, graphTree *GraphTree) Source {
 	If the downstream is clogged, what you send to SourceChannel will be stored in the buffer.
 */
 func NewChannelSource(buffer int) (SourceChannel, Source) {
-	in := queue.NewQueueEmpty(0)
 	out := queue.NewQueueEmpty(buffer)
-	return in, &sourceImpl{
+	return out, &sourceImpl{
 		out:       out,
-		graphTree: PassThrowGraph(in, out),
+		graphTree: EmptyGraph(),
 	}
 }
 
