@@ -69,6 +69,15 @@ func (a *mailboxImpl) Close() {
 	if !a.isClosed {
 		a.isClosed = true
 		close(a.queue)
+		// Garbage disposal
+		go func() {
+			for {
+				_, ok := <-a.queue
+				if !ok {
+					break
+				}
+			}
+		}()
 	}
 }
 
