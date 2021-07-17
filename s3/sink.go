@@ -10,11 +10,10 @@ import (
 
 type SinkConfig struct {
 	UploadInput *s3manager.UploadInput
-	Buffer      int
 }
 
-func NewS3Sink(conf *SinkConfig, conn *s3manager.Uploader) stream.Sink {
-	in := queue.NewQueueEmpty(conf.Buffer)
+func NewS3Sink(conf *SinkConfig, conn *s3manager.Uploader, options ...queue.Option) stream.Sink {
+	in := queue.NewQueueEmpty(options...)
 	graphTree := stream.EmptyGraph()
 	graphTree.AddWire(newS3SinkWire(in, conn, conf.UploadInput))
 	return stream.BuildSink(in, graphTree)

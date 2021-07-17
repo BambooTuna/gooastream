@@ -10,12 +10,10 @@ import (
 type SinkConfig struct {
 	// if data type is not *nats.Msg but []byte, it will send to ByteSubject
 	ByteSubject string
-
-	Buffer int
 }
 
-func NewNatsSink(conf *SinkConfig, conn *nats.Conn) stream.Sink {
-	in := queue.NewQueueEmpty(conf.Buffer)
+func NewNatsSink(conf *SinkConfig, conn *nats.Conn, options ...queue.Option) stream.Sink {
+	in := queue.NewQueueEmpty(options...)
 	graphTree := stream.EmptyGraph()
 	graphTree.AddWire(newNatsSinkWire(in, conf, conn))
 	return stream.BuildSink(in, graphTree)

@@ -8,13 +8,11 @@ import (
 	"github.com/pion/webrtc/v3"
 )
 
-type CandidateSinkConfig struct {
-	Buffer int
-}
+type CandidateSinkConfig struct{}
 
 // -> webrtc.ICECandidateInit
-func NewWebrtcCandidateSink(conf *CandidateSinkConfig, peer *webrtc.PeerConnection) stream.Sink {
-	in := queue.NewQueueEmpty(conf.Buffer)
+func NewWebrtcCandidateSink(conf *CandidateSinkConfig, peer *webrtc.PeerConnection, options ...queue.Option) stream.Sink {
+	in := queue.NewQueueEmpty(options...)
 	graphTree := stream.EmptyGraph()
 	graphTree.AddWire(newWebrtcCandidateSinkWire(in, conf, peer))
 	return stream.BuildSink(in, graphTree)
@@ -65,12 +63,11 @@ var _ stream.Wire = (*webrtcCandidateSinkWire)(nil)
 type TrackSinkConfig struct {
 	Transceiver  *webrtc.RTPTransceiver
 	DefaultTrack *webrtc.TrackLocalStaticRTP
-	Buffer       int
 }
 
 // -> *rtp.Packet
 // -> []byte
-func NewWebrtcTrackSink(conf *TrackSinkConfig, peer *webrtc.PeerConnection) (stream.Sink, error) {
+func NewWebrtcTrackSink(conf *TrackSinkConfig, peer *webrtc.PeerConnection, options ...queue.Option) (stream.Sink, error) {
 	track, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus, ClockRate: 48000, Channels: 2, SDPFmtpLine: "", RTCPFeedback: nil}, conf.DefaultTrack.ID(), conf.DefaultTrack.StreamID())
 	if err != nil {
 		return nil, err
@@ -79,7 +76,7 @@ func NewWebrtcTrackSink(conf *TrackSinkConfig, peer *webrtc.PeerConnection) (str
 	if err != nil {
 		return nil, err
 	}
-	in := queue.NewQueueEmpty(conf.Buffer)
+	in := queue.NewQueueEmpty(options...)
 	graphTree := stream.EmptyGraph()
 	graphTree.AddWire(newWebrtcTrackSinkWire(in, conf, peer, track))
 	return stream.BuildSink(in, graphTree), nil
