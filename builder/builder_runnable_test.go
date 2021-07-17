@@ -134,3 +134,69 @@ func ExampleGraphBuilder_ToSource() {
 	// 5
 	// 8
 }
+
+func ExampleNewBroadcast() {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*1)
+	defer cancel()
+	var wg sync.WaitGroup
+
+	n := 5
+	list := make([]interface{}, n)
+	wg.Add(n * 3)
+	for i := 0; i < n; i++ {
+		list[i] = i
+	}
+	graphBuilder := NewGraphBuilder()
+	source := graphBuilder.AddSource(stream.NewSliceSource(list))
+	balance := graphBuilder.AddBalance(NewBroadcast(3))
+	merge := graphBuilder.AddMerge(NewMerge(2))
+	garbage := graphBuilder.AddSink(stream.NewSink(func(i interface{}) error {
+		fmt.Println(i)
+		wg.Done()
+		return nil
+	}))
+
+	/*
+		source ~> broadcast ~> merge ~>
+				  broadcast ~> merge
+				  broadcast ~> garbage
+	*/
+	source.Out().Wire(balance.In())
+	balance.Out()[0].Wire(merge.In()[0])
+	balance.Out()[1].Wire(merge.In()[1])
+	balance.Out()[2].Wire(garbage.In())
+
+	buildSource := graphBuilder.ToSource(merge.Out())
+	sink := stream.NewSink(func(i interface{}) error {
+		fmt.Println(i)
+		wg.Done()
+		return nil
+	})
+
+	runnable := buildSource.To(sink)
+	done, runningCancel := runnable.Run(ctx)
+	go func() {
+		wg.Wait()
+		runningCancel()
+	}()
+
+	// blocking until runningCancel is called
+	done()
+
+	// Unordered output:
+	// 0
+	// 0
+	// 0
+	// 1
+	// 1
+	// 1
+	// 2
+	// 2
+	// 2
+	// 3
+	// 3
+	// 3
+	// 4
+	// 4
+	// 4
+}
