@@ -12,58 +12,55 @@ type CandidateSinkConfig struct {
 	Buffer int
 }
 
-type webrtcCandidateSink struct {
-	in        queue.Queue
-	graphTree *stream.GraphTree
+// -> webrtc.ICECandidateInit
+func NewWebrtcCandidateSink(conf *CandidateSinkConfig, peer *webrtc.PeerConnection) stream.Sink {
+	in := queue.NewQueueEmpty(conf.Buffer)
+	graphTree := stream.EmptyGraph()
+	graphTree.AddWire(newWebrtcCandidateSinkWire(in, conf, peer))
+	return stream.BuildSink(in, graphTree)
+}
+
+type webrtcCandidateSinkWire struct {
+	from queue.OutQueue
 
 	conf *CandidateSinkConfig
 	peer *webrtc.PeerConnection
 }
 
-var _ stream.Sink = (*webrtcCandidateSink)(nil)
-
-// -> webrtc.ICECandidateInit
-func NewWebrtcCandidateSink(ctx context.Context, conf *CandidateSinkConfig, peer *webrtc.PeerConnection) stream.Sink {
-	in := queue.NewQueueEmpty(conf.Buffer)
-	sink := webrtcCandidateSink{
-		in:        in,
-		graphTree: stream.EmptyGraph(),
-
+func newWebrtcCandidateSinkWire(from queue.OutQueue, conf *CandidateSinkConfig, peer *webrtc.PeerConnection) stream.Wire {
+	return &webrtcCandidateSinkWire{
+		from: from,
 		conf: conf,
 		peer: peer,
 	}
-	go sink.connect(ctx)
-	return &sink
 }
 
-func (a webrtcCandidateSink) Dummy() {
-}
-
-func (a webrtcCandidateSink) In() queue.Queue {
-	return a.in
-}
-
-func (a webrtcCandidateSink) GraphTree() *stream.GraphTree {
-	return a.graphTree
-}
-
-func (a webrtcCandidateSink) connect(ctx context.Context) {
+func (a webrtcCandidateSinkWire) Run(ctx context.Context, cancel context.CancelFunc) {
 	defer func() {
-		a.in.Close()
+		cancel()
+		a.from.Close()
 		_ = a.peer.Close()
 	}()
+T:
 	for {
-		data, err := a.in.Pop(ctx)
-		if err != nil {
-			break
+		select {
+		case <-ctx.Done():
+			break T
+		default:
+			data, err := a.from.Pop(ctx)
+			if err != nil {
+				break T
+			}
+			candidate, ok := data.(webrtc.ICECandidateInit)
+			if !ok {
+				continue
+			}
+			_ = a.peer.AddICECandidate(candidate)
 		}
-		candidate, ok := data.(webrtc.ICECandidateInit)
-		if !ok {
-			continue
-		}
-		_ = a.peer.AddICECandidate(candidate)
 	}
 }
+
+var _ stream.Wire = (*webrtcCandidateSinkWire)(nil)
 
 type TrackSinkConfig struct {
 	Transceiver  *webrtc.RTPTransceiver
@@ -71,20 +68,9 @@ type TrackSinkConfig struct {
 	Buffer       int
 }
 
-type webrtcTrackSink struct {
-	in        queue.Queue
-	graphTree *stream.GraphTree
-
-	conf  *TrackSinkConfig
-	peer  *webrtc.PeerConnection
-	track *webrtc.TrackLocalStaticRTP
-}
-
-var _ stream.Sink = (*webrtcTrackSink)(nil)
-
 // -> *rtp.Packet
-func NewWebrtcTrackSink(ctx context.Context, conf *TrackSinkConfig, peer *webrtc.PeerConnection) (stream.Sink, error) {
-	in := queue.NewQueueEmpty(conf.Buffer)
+// -> []byte
+func NewWebrtcTrackSink(conf *TrackSinkConfig, peer *webrtc.PeerConnection) (stream.Sink, error) {
 	track, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus, ClockRate: 48000, Channels: 2, SDPFmtpLine: "", RTCPFeedback: nil}, conf.DefaultTrack.ID(), conf.DefaultTrack.StreamID())
 	if err != nil {
 		return nil, err
@@ -93,46 +79,61 @@ func NewWebrtcTrackSink(ctx context.Context, conf *TrackSinkConfig, peer *webrtc
 	if err != nil {
 		return nil, err
 	}
-	sink := webrtcTrackSink{
-		in:        in,
-		graphTree: stream.EmptyGraph(),
+	in := queue.NewQueueEmpty(conf.Buffer)
+	graphTree := stream.EmptyGraph()
+	graphTree.AddWire(newWebrtcTrackSinkWire(in, conf, peer, track))
+	return stream.BuildSink(in, graphTree), nil
+}
 
+type webrtcTrackSinkWire struct {
+	to queue.Queue
+
+	conf  *TrackSinkConfig
+	peer  *webrtc.PeerConnection
+	track *webrtc.TrackLocalStaticRTP
+}
+
+func newWebrtcTrackSinkWire(to queue.Queue, conf *TrackSinkConfig, peer *webrtc.PeerConnection, track *webrtc.TrackLocalStaticRTP) stream.Wire {
+	return &webrtcTrackSinkWire{
+		to:    to,
 		conf:  conf,
 		peer:  peer,
 		track: track,
 	}
-	go sink.connect(ctx)
-	return &sink, nil
 }
 
-func (a webrtcTrackSink) Dummy() {
-}
-
-func (a webrtcTrackSink) In() queue.Queue {
-	return a.in
-}
-
-func (a webrtcTrackSink) GraphTree() *stream.GraphTree {
-	return a.graphTree
-}
-
-func (a webrtcTrackSink) connect(ctx context.Context) {
+func (a webrtcTrackSinkWire) Run(ctx context.Context, cancel context.CancelFunc) {
 	defer func() {
-		a.in.Close()
+		cancel()
+		a.to.Close()
 		_ = a.conf.Transceiver.Sender().ReplaceTrack(a.conf.DefaultTrack)
 	}()
+T:
 	for {
-		data, err := a.in.Pop(ctx)
-		if err != nil {
-			break
-		}
-		packet, ok := data.(*rtp.Packet)
-		if !ok {
-			continue
-		}
-		err = a.track.WriteRTP(packet)
-		if err != nil {
-			break
+		select {
+		case <-ctx.Done():
+			break T
+		default:
+			data, err := a.to.Pop(ctx)
+			if err != nil {
+				break T
+			}
+			switch packet := data.(type) {
+			case *rtp.Packet:
+				err = a.track.WriteRTP(packet)
+				if err != nil {
+					break T
+				}
+			case []byte:
+				_, err = a.track.Write(packet)
+				if err != nil {
+					break T
+				}
+			default:
+				continue
+			}
 		}
 	}
 }
+
+var _ stream.Wire = (*webrtcTrackSinkWire)(nil)
