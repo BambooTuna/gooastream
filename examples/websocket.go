@@ -31,7 +31,6 @@ func WebsocketStream() {
 	})
 
 	flow, err := ws.NewWebSocketClientFlow(
-		ctx,
 		&ws.SourceConfig{
 			PongWait:       time.Second * 6,
 			MaxMessageSize: 1024,

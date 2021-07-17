@@ -46,7 +46,6 @@ func NatsStream() {
 		return
 	}
 	flow := ns.NewNatsFlow(
-		ctx,
 		&ns.SourceConfig{
 			Subjects: []string{"subject1", "subject2"},
 			Buffer:   0,

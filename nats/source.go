@@ -13,53 +13,33 @@ type SourceConfig struct {
 	Buffer   int
 }
 
-type natsSource struct {
-	out       queue.Queue
-	graphTree *stream.GraphTree
+func NewNatsSource(conf *SourceConfig, conn *nats.Conn) stream.Source {
+	out := queue.NewQueueEmpty(conf.Buffer)
+	graphTree := stream.EmptyGraph()
+	graphTree.AddWire(newNatsSourceWire(out, conf, conn))
+	return stream.BuildSource(out, graphTree)
+}
+
+type natsSourceWire struct {
+	to queue.InQueue
 
 	conf *SourceConfig
 	conn *nats.Conn
 }
 
-func NewNatsSource(ctx context.Context, conf *SourceConfig, conn *nats.Conn) stream.Source {
-	out := queue.NewQueueEmpty(conf.Buffer)
-	source := natsSource{
-		out:       out,
-		graphTree: stream.EmptyGraph(),
-
+func newNatsSourceWire(to queue.InQueue, conf *SourceConfig, conn *nats.Conn) stream.Wire {
+	return natsSourceWire{
+		to:   to,
 		conf: conf,
 		conn: conn,
 	}
-	go source.connect(ctx)
-	return &source
 }
 
-func (a natsSource) Via(flow stream.Flow) stream.Source {
-	return stream.BuildSource(
-		flow.Out(),
-		a.GraphTree().
-			Append(stream.PassThrowGraph(a.Out(), flow.In())).
-			Append(flow.GraphTree()),
-	)
-}
-
-func (a natsSource) To(sink stream.Sink) stream.Runnable {
-	return stream.NewRunnable(
-		a.GraphTree().
-			Append(stream.PassThrowGraph(a.Out(), sink.In())).
-			Append(sink.GraphTree()),
-	)
-}
-
-func (a natsSource) Out() queue.Queue {
-	return a.out
-}
-
-func (a natsSource) GraphTree() *stream.GraphTree {
-	return a.graphTree
-}
-
-func (a natsSource) connect(ctx context.Context) {
+func (a natsSourceWire) Run(ctx context.Context, cancel context.CancelFunc) {
+	defer func() {
+		cancel()
+		a.to.Close()
+	}()
 	var wg sync.WaitGroup
 	for _, subject := range a.conf.Subjects {
 		wg.Add(1)
@@ -82,7 +62,7 @@ func (a natsSource) connect(ctx context.Context) {
 					if !ok {
 						break T
 					}
-					err := a.out.Push(ctx, msg)
+					err := a.to.Push(ctx, msg)
 					if err != nil {
 						break T
 					}
@@ -94,4 +74,4 @@ func (a natsSource) connect(ctx context.Context) {
 	wg.Wait()
 }
 
-var _ stream.Source = (*natsSource)(nil)
+var _ stream.Wire = (*natsSourceWire)(nil)

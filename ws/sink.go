@@ -14,64 +14,53 @@ type SinkConfig struct {
 	Buffer     int
 }
 
-type webSocketSink struct {
-	in        queue.Queue
-	graphTree *stream.GraphTree
+func NewWebSocketSink(conf *SinkConfig, conn *websocket.Conn) stream.Sink {
+	in := queue.NewQueueEmpty(conf.Buffer)
+	graphTree := stream.EmptyGraph()
+	graphTree.AddWire(newWebSocketSinkWire(in, conf, conn))
+	return stream.BuildSink(in, graphTree)
+}
+
+func NewWebSocketClientSink(conf *SinkConfig, url string) (stream.Sink, error) {
+	return NewWebSocketClientSinkWithDialer(conf, url, websocket.DefaultDialer)
+}
+
+func NewWebSocketClientSinkWithDialer(conf *SinkConfig, url string, dialer *websocket.Dialer) (stream.Sink, error) {
+	conn, _, err := dialer.Dial(url, nil)
+	if err != nil {
+		return nil, err
+	}
+	return NewWebSocketSink(conf, conn), nil
+}
+
+type webSocketSinkWire struct {
+	from queue.OutQueue
 
 	conf *SinkConfig
 	conn *websocket.Conn
 }
 
-var _ stream.Sink = (*webSocketSink)(nil)
-
-func NewWebSocketSink(ctx context.Context, conf *SinkConfig, conn *websocket.Conn) stream.Sink {
-	in := queue.NewQueueEmpty(conf.Buffer)
-	sink := webSocketSink{
-		in:        in,
-		graphTree: stream.EmptyGraph(),
-
+func newWebSocketSinkWire(from queue.OutQueue, conf *SinkConfig, conn *websocket.Conn) stream.Wire {
+	return &webSocketSinkWire{
+		from: from,
 		conf: conf,
 		conn: conn,
 	}
-	go sink.connect(ctx)
-	return &sink
 }
 
-func NewWebSocketClientSink(ctx context.Context, conf *SinkConfig, url string) (stream.Sink, error) {
-	return NewWebSocketClientSinkWithDialer(ctx, conf, url, websocket.DefaultDialer)
-}
-
-func NewWebSocketClientSinkWithDialer(ctx context.Context, conf *SinkConfig, url string, dialer *websocket.Dialer) (stream.Sink, error) {
-	conn, _, err := dialer.Dial(url, nil)
-	if err != nil {
-		return nil, err
-	}
-	return NewWebSocketSink(ctx, conf, conn), nil
-}
-
-func (a webSocketSink) Dummy() {
-}
-
-func (a webSocketSink) In() queue.Queue {
-	return a.in
-}
-
-func (a webSocketSink) GraphTree() *stream.GraphTree {
-	return a.graphTree
-}
-
-func (a webSocketSink) connect(ctx context.Context) {
+func (a webSocketSinkWire) Run(ctx context.Context, cancel context.CancelFunc) {
 	ticker := time.NewTicker(a.conf.PingPeriod)
 	ch := make(chan interface{}, 0)
 	defer func() {
+		cancel()
 		ticker.Stop()
-		a.in.Close()
+		a.from.Close()
 		_ = a.conn.Close()
 	}()
 
 	go func() {
 		for {
-			data, err := a.in.Pop(ctx)
+			data, err := a.from.Pop(ctx)
 			if err != nil {
 				break
 			}
@@ -79,10 +68,11 @@ func (a webSocketSink) connect(ctx context.Context) {
 		}
 		close(ch)
 	}()
-
 T:
 	for {
 		select {
+		case <-ctx.Done():
+			break T
 		case data, ok := <-ch:
 			if !ok {
 				break T
@@ -104,3 +94,5 @@ T:
 		}
 	}
 }
+
+var _ stream.Wire = (*webSocketSinkWire)(nil)

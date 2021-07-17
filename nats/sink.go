@@ -14,59 +14,59 @@ type SinkConfig struct {
 	Buffer int
 }
 
-type natsSink struct {
-	in        queue.Queue
-	graphTree *stream.GraphTree
+func NewNatsSink(conf *SinkConfig, conn *nats.Conn) stream.Sink {
+	in := queue.NewQueueEmpty(conf.Buffer)
+	graphTree := stream.EmptyGraph()
+	graphTree.AddWire(newNatsSinkWire(in, conf, conn))
+	return stream.BuildSink(in, graphTree)
+}
+
+type natsSinkWire struct {
+	from queue.OutQueue
 
 	conf *SinkConfig
 	conn *nats.Conn
 }
 
-func NewNatsSink(ctx context.Context, conf *SinkConfig, conn *nats.Conn) stream.Sink {
-	in := queue.NewQueueEmpty(conf.Buffer)
-	sink := natsSink{
-		in:        in,
-		graphTree: stream.EmptyGraph(),
-
+func newNatsSinkWire(from queue.OutQueue, conf *SinkConfig, conn *nats.Conn) stream.Wire {
+	return &natsSinkWire{
+		from: from,
 		conf: conf,
 		conn: conn,
 	}
-	go sink.connect(ctx)
-	return &sink
 }
 
-func (a natsSink) Dummy() {
-}
-
-func (a natsSink) In() queue.Queue {
-	return a.in
-}
-
-func (a natsSink) GraphTree() *stream.GraphTree {
-	return a.graphTree
-}
-
-func (a natsSink) connect(ctx context.Context) {
+func (a natsSinkWire) Run(ctx context.Context, cancel context.CancelFunc) {
+	defer func() {
+		cancel()
+		a.from.Close()
+	}()
+T:
 	for {
-		data, err := a.in.Pop(ctx)
-		if err != nil {
-			break
-		}
-		switch msg := data.(type) {
-		case *nats.Msg:
-			err = a.conn.PublishMsg(msg)
-			if err != nil {
-				break
-			}
-		case []byte:
-			err = a.conn.Publish(a.conf.ByteSubject, msg)
-			if err != nil {
-				break
-			}
+		select {
+		case <-ctx.Done():
+			break T
 		default:
-			continue
+			data, err := a.from.Pop(ctx)
+			if err != nil {
+				break T
+			}
+			switch msg := data.(type) {
+			case *nats.Msg:
+				err = a.conn.PublishMsg(msg)
+				if err != nil {
+					break T
+				}
+			case []byte:
+				err = a.conn.Publish(a.conf.ByteSubject, msg)
+				if err != nil {
+					break T
+				}
+			default:
+				continue
+			}
 		}
 	}
 }
 
-var _ stream.Sink = (*natsSink)(nil)
+var _ stream.Wire = (*natsSinkWire)(nil)

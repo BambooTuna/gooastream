@@ -45,7 +45,6 @@ func ExampleNewNatsFlow() {
 		return
 	}
 	flow := NewNatsFlow(
-		ctx,
 		&SourceConfig{
 			Subjects: []string{"subject1", "subject2"},
 			Buffer:   0,
