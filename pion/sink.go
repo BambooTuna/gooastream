@@ -66,19 +66,18 @@ func (a webrtcCandidateSink) connect(ctx context.Context) {
 }
 
 type TrackSinkConfig struct {
-	ID       string
-	StreamID string
-	Buffer   int
+	Transceiver  *webrtc.RTPTransceiver
+	DefaultTrack *webrtc.TrackLocalStaticRTP
+	Buffer       int
 }
 
 type webrtcTrackSink struct {
 	in        queue.Queue
 	graphTree *stream.GraphTree
 
-	conf        *TrackSinkConfig
-	peer        *webrtc.PeerConnection
-	track       *webrtc.TrackLocalStaticRTP
-	transceiver *webrtc.RTPTransceiver
+	conf  *TrackSinkConfig
+	peer  *webrtc.PeerConnection
+	track *webrtc.TrackLocalStaticRTP
 }
 
 var _ stream.Sink = (*webrtcTrackSink)(nil)
@@ -86,24 +85,21 @@ var _ stream.Sink = (*webrtcTrackSink)(nil)
 // -> *rtp.Packet
 func NewWebrtcTrackSink(ctx context.Context, conf *TrackSinkConfig, peer *webrtc.PeerConnection) (stream.Sink, error) {
 	in := queue.NewQueueEmpty(conf.Buffer)
-
-	track, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus, ClockRate: 48000, Channels: 2, SDPFmtpLine: "", RTCPFeedback: nil}, conf.ID, conf.StreamID)
+	track, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus, ClockRate: 48000, Channels: 2, SDPFmtpLine: "", RTCPFeedback: nil}, conf.DefaultTrack.ID(), conf.DefaultTrack.StreamID())
 	if err != nil {
 		return nil, err
 	}
-	transceiver, err := peer.AddTransceiverFromTrack(track, webrtc.RTPTransceiverInit{Direction: webrtc.RTPTransceiverDirectionSendonly})
+	err = conf.Transceiver.Sender().ReplaceTrack(track)
 	if err != nil {
 		return nil, err
 	}
-
 	sink := webrtcTrackSink{
 		in:        in,
 		graphTree: stream.EmptyGraph(),
 
-		conf:        conf,
-		peer:        peer,
-		track:       track,
-		transceiver: transceiver,
+		conf:  conf,
+		peer:  peer,
+		track: track,
 	}
 	go sink.connect(ctx)
 	return &sink, nil
@@ -123,7 +119,7 @@ func (a webrtcTrackSink) GraphTree() *stream.GraphTree {
 func (a webrtcTrackSink) connect(ctx context.Context) {
 	defer func() {
 		a.in.Close()
-		_ = a.peer.RemoveTrack(a.transceiver.Sender())
+		_ = a.conf.Transceiver.Sender().ReplaceTrack(a.conf.DefaultTrack)
 	}()
 	for {
 		data, err := a.in.Pop(ctx)

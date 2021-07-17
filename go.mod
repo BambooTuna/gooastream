@@ -9,4 +9,5 @@ require (
 	github.com/pion/rtcp v1.2.6
 	github.com/pion/rtp v1.6.5
 	github.com/pion/webrtc/v3 v3.0.31
+	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 )

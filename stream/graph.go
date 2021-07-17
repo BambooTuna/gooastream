@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/BambooTuna/gooastream/queue"
+	"golang.org/x/sync/errgroup"
 	"time"
 )
 
@@ -22,15 +23,25 @@ const (
 // GraphTree
 // A structure that represents the connection between queue.OutQueue
 type GraphTree struct {
-	wires []*wire
+	wires []Wire
 }
 
-type wire struct {
-	from     queue.OutQueue
-	to       queue.InQueue
-	throttle time.Duration
-	task     func(interface{}) (interface{}, error)
+type Wire interface {
+	run(context.Context, context.CancelFunc)
 }
+
+type (
+	lineWire struct {
+		from     queue.OutQueue
+		to       queue.InQueue
+		throttle time.Duration
+		task     func(interface{}) (interface{}, error)
+	}
+	broadcastWire struct {
+		from queue.OutQueue
+		to   []queue.InQueue
+	}
+)
 
 var PassPermissionError = fmt.Errorf("pass permission error")
 var emptyTaskFunc = func(i interface{}) (interface{}, error) {
@@ -43,7 +54,7 @@ var emptyTaskFunc = func(i interface{}) (interface{}, error) {
 */
 func EmptyGraph() *GraphTree {
 	return &GraphTree{
-		wires: []*wire{},
+		wires: []Wire{},
 	}
 }
 
@@ -63,12 +74,26 @@ func PassThrowGraph(from queue.OutQueue, to queue.InQueue) *GraphTree {
 */
 func ThrottleGraph(from queue.OutQueue, to queue.InQueue, throttle time.Duration) *GraphTree {
 	return &GraphTree{
-		wires: []*wire{
-			{
+		wires: []Wire{
+			&lineWire{
 				from:     from,
 				to:       to,
 				throttle: throttle,
 				task:     emptyTaskFunc,
+			},
+		},
+	}
+}
+
+/*
+	BroadcastGraph
+*/
+func BroadcastGraph(from queue.OutQueue, to []queue.InQueue) *GraphTree {
+	return &GraphTree{
+		wires: []Wire{
+			&broadcastWire{
+				from: from,
+				to:   to,
 			},
 		},
 	}
@@ -81,8 +106,8 @@ func ThrottleGraph(from queue.OutQueue, to queue.InQueue, throttle time.Duration
 */
 func MapGraph(from queue.OutQueue, to queue.InQueue, f func(interface{}) (interface{}, error)) *GraphTree {
 	return &GraphTree{
-		wires: []*wire{
-			{
+		wires: []Wire{
+			&lineWire{
 				from: from,
 				to:   to,
 				task: f,
@@ -115,19 +140,54 @@ func (a *GraphTree) Add(child *GraphTree) {
 */
 func (a *GraphTree) Run(ctx context.Context, cancel context.CancelFunc) {
 	for _, wire := range a.wires {
-		go func(from queue.OutQueue, to queue.InQueue, throttle time.Duration, task func(interface{}) (interface{}, error)) {
-			defer func() {
-				// 先にGraphを止めてからQueueを止める
-				cancel()
-				from.Close()
-				to.Close()
-			}()
-			if throttle > 0 {
-				throttler(ctx, from, to, throttle, task)
-			} else {
-				passThrow(ctx, from, to, task)
+		go wire.run(ctx, cancel)
+	}
+}
+
+func (a *lineWire) run(ctx context.Context, cancel context.CancelFunc) {
+	defer func() {
+		// 先にGraphを止めてからQueueを止める
+		cancel()
+		a.from.Close()
+		a.to.Close()
+	}()
+	if a.throttle > 0 {
+		throttler(ctx, a.from, a.to, a.throttle, a.task)
+	} else {
+		passThrow(ctx, a.from, a.to, a.task)
+	}
+}
+
+func (a *broadcastWire) run(ctx context.Context, cancel context.CancelFunc) {
+	defer func() {
+		// 先にGraphを止めてからQueueを止める
+		cancel()
+		a.from.Close()
+		for _, v := range a.to {
+			v.Close()
+		}
+	}()
+T:
+	for {
+		select {
+		case <-ctx.Done():
+			break T
+		default:
+			v, err := a.from.Pop(ctx)
+			if err != nil {
+				break T
 			}
-		}(wire.from, wire.to, wire.throttle, wire.task)
+			eg, broadcastCtx := errgroup.WithContext(ctx)
+			for _, to := range a.to {
+				eg.Go(func() error {
+					return to.Push(broadcastCtx, v)
+				})
+			}
+			err = eg.Wait()
+			if err != nil {
+				break T
+			}
+		}
 	}
 }
 
