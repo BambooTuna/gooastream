@@ -13,38 +13,12 @@ type SinkConfig struct {
 	Buffer      int
 }
 
-type s3Sink struct {
-	in        queue.Queue
-	graphTree *stream.GraphTree
-
-	conf *SinkConfig
-	conn *s3manager.Uploader
-}
-
 func NewS3Sink(conf *SinkConfig, conn *s3manager.Uploader) stream.Sink {
 	in := queue.NewQueueEmpty(conf.Buffer)
 	graphTree := stream.EmptyGraph()
 	graphTree.AddWire(newS3SinkWire(in, conn, conf.UploadInput))
-	return &s3Sink{
-		in:        in,
-		graphTree: graphTree,
-
-		conf: conf,
-		conn: conn,
-	}
+	return stream.BuildSink(in, graphTree)
 }
-
-func (a s3Sink) Dummy() {}
-
-func (a s3Sink) In() queue.Queue {
-	return a.in
-}
-
-func (a s3Sink) GraphTree() *stream.GraphTree {
-	return a.graphTree
-}
-
-var _ stream.Sink = (*s3Sink)(nil)
 
 type s3SinkWire struct {
 	from   queue.OutQueue
