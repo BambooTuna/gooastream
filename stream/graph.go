@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/BambooTuna/gooastream/queue"
-	"golang.org/x/sync/errgroup"
 	"time"
 )
 
@@ -185,15 +184,11 @@ T:
 			if err != nil {
 				break T
 			}
-			eg, broadcastCtx := errgroup.WithContext(ctx)
-			for _, to := range a.to {
-				eg.Go(func() error {
-					return to.Push(broadcastCtx, v)
-				})
-			}
-			err = eg.Wait()
-			if err != nil {
-				break T
+			for _, t := range a.to {
+				err = t.Push(ctx, v)
+				if err != nil {
+					break T
+				}
 			}
 		}
 	}
