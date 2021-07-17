@@ -12,7 +12,7 @@ func ExampleNewWebSocketFlow() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
-	ch, source := stream.NewChannelSource(0)
+	ch, source := stream.NewChannelSource()
 	go func() {
 		for range time.Tick(time.Second) {
 			err := ch.Push(ctx, &Message{
@@ -30,16 +30,13 @@ func ExampleNewWebSocketFlow() {
 	})
 
 	flow, err := NewWebSocketClientFlow(
-		ctx,
 		&SourceConfig{
 			PongWait:       time.Second * 6,
 			MaxMessageSize: 1024,
-			Buffer:         0,
 		},
 		&SinkConfig{
 			WriteWait:  time.Second,
 			PingPeriod: time.Second * 5,
-			Buffer:     0,
 		},
 		"ws://localhost:8080",
 	)

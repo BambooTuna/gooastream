@@ -21,12 +21,12 @@ type (
 var _ Balance = (*balanceImpl)(nil)
 var _ Merge = (*mergeImpl)(nil)
 
-func NewBroadcast(size int) Balance {
-	in := queue.NewQueueEmpty(0)
+func NewBroadcast(size int, options ...queue.Option) Balance {
+	in := queue.NewQueueEmpty(options...)
 	outs := make([]queue.Queue, size)
 	broadcasts := make([]queue.InQueue, size)
 	for i := 0; i < size; i++ {
-		out := queue.NewQueueEmpty(0)
+		out := queue.NewQueueEmpty(options...)
 		outs[i] = out
 		broadcasts[i] = out
 	}
@@ -37,12 +37,12 @@ func NewBroadcast(size int) Balance {
 	}
 }
 
-func NewBalance(size int) Balance {
-	in := queue.NewQueueEmpty(0)
+func NewBalance(size int, options ...queue.Option) Balance {
+	in := queue.NewQueueEmpty(options...)
 	outs := make([]queue.Queue, size)
 	graphTree := stream.EmptyGraph()
 	for i := 0; i < size; i++ {
-		out := queue.NewQueueEmpty(0)
+		out := queue.NewQueueEmpty(options...)
 		outs[i] = out
 		graphTree.Add(stream.PassThrowGraph(in, out))
 	}
@@ -63,12 +63,12 @@ func (a *balanceImpl) GraphTree() *stream.GraphTree {
 	return a.graphTree
 }
 
-func NewMerge(size int) Merge {
+func NewMerge(size int, options ...queue.Option) Merge {
 	ins := make([]queue.Queue, size)
-	out := queue.NewQueueEmpty(0)
+	out := queue.NewQueueEmpty(options...)
 	graphTree := stream.EmptyGraph()
 	for i := 0; i < size; i++ {
-		in := queue.NewQueueEmpty(0)
+		in := queue.NewQueueEmpty(options...)
 		ins[i] = in
 		graphTree.Add(stream.PassThrowGraph(in, out))
 	}

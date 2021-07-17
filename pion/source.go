@@ -10,125 +10,75 @@ import (
 	"time"
 )
 
-type (
-	CandidateSourceConfig struct {
-		Buffer int
-	}
-	webrtcCandidateSource struct {
-		out       queue.Queue
-		graphTree *stream.GraphTree
-
-		conf *CandidateSourceConfig
-		peer *webrtc.PeerConnection
-	}
-)
+type CandidateSourceConfig struct{}
 
 // webrtc.ICECandidateInit ->
-func NewWebrtcCandidateSource(ctx context.Context, conf *CandidateSourceConfig, peer *webrtc.PeerConnection) stream.Source {
-	out := queue.NewQueueEmpty(conf.Buffer)
-	source := webrtcCandidateSource{
-		out:       out,
-		graphTree: stream.EmptyGraph(),
-		conf:      conf,
-		peer:      peer,
+func NewWebrtcCandidateSource(conf *CandidateSourceConfig, peer *webrtc.PeerConnection, options ...queue.Option) stream.Source {
+	out := queue.NewQueueEmpty(options...)
+	graphTree := stream.EmptyGraph()
+	graphTree.AddWire(newWebrtcCandidateSourceWire(out, conf, peer))
+	return stream.BuildSource(out, graphTree)
+}
+
+type webrtcCandidateSourceWire struct {
+	to queue.InQueue
+
+	conf *CandidateSourceConfig
+	peer *webrtc.PeerConnection
+}
+
+func newWebrtcCandidateSourceWire(to queue.Queue, conf *CandidateSourceConfig, peer *webrtc.PeerConnection) stream.Wire {
+	return &webrtcCandidateSourceWire{
+		to:   to,
+		conf: conf,
+		peer: peer,
 	}
-	go source.connect(ctx)
-	return &source
 }
 
-func (a webrtcCandidateSource) Via(flow stream.Flow) stream.Source {
-	return stream.BuildSource(
-		flow.Out(),
-		a.GraphTree().
-			Append(stream.PassThrowGraph(a.Out(), flow.In())).
-			Append(flow.GraphTree()),
-	)
-}
-
-func (a webrtcCandidateSource) To(sink stream.Sink) stream.Runnable {
-	return stream.NewRunnable(
-		a.GraphTree().
-			Append(stream.PassThrowGraph(a.Out(), sink.In())).
-			Append(sink.GraphTree()),
-	)
-}
-
-func (a webrtcCandidateSource) Out() queue.Queue {
-	return a.out
-}
-
-func (a webrtcCandidateSource) GraphTree() *stream.GraphTree {
-	return a.graphTree
-}
-
-func (a webrtcCandidateSource) connect(ctx context.Context) {
+func (a webrtcCandidateSourceWire) Run(ctx context.Context, cancel context.CancelFunc) {
 	a.peer.OnICECandidate(func(candidate *webrtc.ICECandidate) {
 		if candidate == nil {
 			return
 		}
-		_ = a.out.Push(ctx, candidate.ToJSON())
+		_ = a.to.Push(ctx, candidate.ToJSON())
 	})
 }
 
-var _ stream.Source = (*webrtcCandidateSource)(nil)
+var _ stream.Wire = (*webrtcCandidateSourceWire)(nil)
 
-type (
-	TrackSourceConfig struct {
-		ReadDeadline time.Duration
-		Buffer       int
-	}
-	webrtcTrackSource struct {
-		out       queue.Queue
-		graphTree *stream.GraphTree
-
-		conf *TrackSourceConfig
-		peer *webrtc.PeerConnection
-	}
-)
+type TrackSourceConfig struct {
+	ReadDeadline time.Duration
+}
 
 // *rtp.Packet ->
-func NewWebrtcTrackSource(ctx context.Context, conf *TrackSourceConfig, peer *webrtc.PeerConnection) stream.Source {
-	out := queue.NewQueueEmpty(conf.Buffer)
-	source := webrtcTrackSource{
-		out:       out,
-		graphTree: stream.EmptyGraph(),
-		conf:      conf,
-		peer:      peer,
+func NewWebrtcTrackSource(conf *TrackSourceConfig, peer *webrtc.PeerConnection, options ...queue.Option) stream.Source {
+	out := queue.NewQueueEmpty(options...)
+	graphTree := stream.EmptyGraph()
+	graphTree.AddWire(newWebrtcTrackSourceWire(out, conf, peer))
+	return stream.BuildSource(out, graphTree)
+}
+
+type webrtcTrackSourceWire struct {
+	to queue.InQueue
+
+	conf *TrackSourceConfig
+	peer *webrtc.PeerConnection
+}
+
+func newWebrtcTrackSourceWire(to queue.InQueue, conf *TrackSourceConfig, peer *webrtc.PeerConnection) stream.Wire {
+	return &webrtcTrackSourceWire{
+		to:   to,
+		conf: conf,
+		peer: peer,
 	}
-	go source.connect(ctx)
-	return &source
 }
 
-func (a webrtcTrackSource) Via(flow stream.Flow) stream.Source {
-	return stream.BuildSource(
-		flow.Out(),
-		a.GraphTree().
-			Append(stream.PassThrowGraph(a.Out(), flow.In())).
-			Append(flow.GraphTree()),
-	)
-}
-
-func (a webrtcTrackSource) To(sink stream.Sink) stream.Runnable {
-	return stream.NewRunnable(
-		a.GraphTree().
-			Append(stream.PassThrowGraph(a.Out(), sink.In())).
-			Append(sink.GraphTree()),
-	)
-}
-
-func (a webrtcTrackSource) Out() queue.Queue {
-	return a.out
-}
-
-func (a webrtcTrackSource) GraphTree() *stream.GraphTree {
-	return a.graphTree
-}
-
-func (a webrtcTrackSource) connect(ctx context.Context) {
+func (a webrtcTrackSourceWire) Run(ctx context.Context, cancel context.CancelFunc) {
 	ch := make(chan interface{}, 0)
 	defer func() {
+		cancel()
 		_ = a.peer.Close()
-		a.out.Close()
+		a.to.Close()
 	}()
 	a.peer.OnTrack(func(remoteTrack *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		go func() {
@@ -166,7 +116,7 @@ T:
 			if !ok {
 				break T
 			}
-			err := a.out.Push(ctx, data)
+			err := a.to.Push(ctx, data)
 			if err != nil {
 				break T
 			}
@@ -174,4 +124,4 @@ T:
 	}
 }
 
-var _ stream.Source = (*webrtcTrackSource)(nil)
+var _ stream.Wire = (*webrtcTrackSourceWire)(nil)

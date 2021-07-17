@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/BambooTuna/gooastream/queue"
-	"golang.org/x/sync/errgroup"
 	"time"
 )
 
@@ -27,7 +26,7 @@ type GraphTree struct {
 }
 
 type Wire interface {
-	run(context.Context, context.CancelFunc)
+	Run(context.Context, context.CancelFunc)
 }
 
 type (
@@ -133,6 +132,14 @@ func (a *GraphTree) Add(child *GraphTree) {
 }
 
 /*
+	AddWire
+	Mix Wire with self
+*/
+func (a *GraphTree) AddWire(wire Wire) {
+	a.wires = append(a.wires, wire)
+}
+
+/*
 	Run
 	Run GraphTree with context.Context and context.CancelFunc.
 	context.CancelFunc is called if some error occurs inside
@@ -140,11 +147,11 @@ func (a *GraphTree) Add(child *GraphTree) {
 */
 func (a *GraphTree) Run(ctx context.Context, cancel context.CancelFunc) {
 	for _, wire := range a.wires {
-		go wire.run(ctx, cancel)
+		go wire.Run(ctx, cancel)
 	}
 }
 
-func (a *lineWire) run(ctx context.Context, cancel context.CancelFunc) {
+func (a *lineWire) Run(ctx context.Context, cancel context.CancelFunc) {
 	defer func() {
 		// 先にGraphを止めてからQueueを止める
 		cancel()
@@ -158,7 +165,7 @@ func (a *lineWire) run(ctx context.Context, cancel context.CancelFunc) {
 	}
 }
 
-func (a *broadcastWire) run(ctx context.Context, cancel context.CancelFunc) {
+func (a *broadcastWire) Run(ctx context.Context, cancel context.CancelFunc) {
 	defer func() {
 		// 先にGraphを止めてからQueueを止める
 		cancel()
@@ -177,15 +184,11 @@ T:
 			if err != nil {
 				break T
 			}
-			eg, broadcastCtx := errgroup.WithContext(ctx)
-			for _, to := range a.to {
-				eg.Go(func() error {
-					return to.Push(broadcastCtx, v)
-				})
-			}
-			err = eg.Wait()
-			if err != nil {
-				break T
+			for _, t := range a.to {
+				err = t.Push(ctx, v)
+				if err != nil {
+					break T
+				}
 			}
 		}
 	}

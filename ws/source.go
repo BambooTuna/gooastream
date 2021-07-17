@@ -11,73 +11,47 @@ import (
 type SourceConfig struct {
 	PongWait       time.Duration
 	MaxMessageSize int64
-	Buffer         int
 }
 
-type webSocketSource struct {
-	out       queue.Queue
-	graphTree *stream.GraphTree
+func NewWebSocketSource(conf *SourceConfig, conn *websocket.Conn, options ...queue.Option) stream.Source {
+	out := queue.NewQueueEmpty(options...)
+	graphTree := stream.EmptyGraph()
+	graphTree.AddWire(newWebSocketSourceWire(out, conf, conn))
+	return stream.BuildSource(out, graphTree)
+}
+
+func NewWebSocketClientSource(conf *SourceConfig, url string, options ...queue.Option) (stream.Source, error) {
+	return NewWebSocketClientSourceWithDialer(conf, url, websocket.DefaultDialer, options...)
+}
+
+func NewWebSocketClientSourceWithDialer(conf *SourceConfig, url string, dialer *websocket.Dialer, options ...queue.Option) (stream.Source, error) {
+	conn, _, err := dialer.Dial(url, nil)
+	if err != nil {
+		return nil, err
+	}
+	return NewWebSocketSource(conf, conn, options...), nil
+}
+
+type webSocketSourceWire struct {
+	to queue.InQueue
 
 	conf *SourceConfig
 	conn *websocket.Conn
 }
 
-var _ stream.Source = (*webSocketSource)(nil)
-
-func NewWebSocketSource(ctx context.Context, conf *SourceConfig, conn *websocket.Conn) stream.Source {
-	out := queue.NewQueueEmpty(conf.Buffer)
-	source := webSocketSource{
-		out:       out,
-		graphTree: stream.EmptyGraph(),
-
+func newWebSocketSourceWire(to queue.InQueue, conf *SourceConfig, conn *websocket.Conn) stream.Wire {
+	return &webSocketSourceWire{
+		to:   to,
 		conf: conf,
 		conn: conn,
 	}
-	go source.connect(ctx)
-	return &source
 }
 
-func NewWebSocketClientSource(ctx context.Context, conf *SourceConfig, url string) (stream.Source, error) {
-	return NewWebSocketClientSourceWithDialer(ctx, conf, url, websocket.DefaultDialer)
-}
-
-func NewWebSocketClientSourceWithDialer(ctx context.Context, conf *SourceConfig, url string, dialer *websocket.Dialer) (stream.Source, error) {
-	conn, _, err := dialer.Dial(url, nil)
-	if err != nil {
-		return nil, err
-	}
-	return NewWebSocketSource(ctx, conf, conn), nil
-}
-
-func (a webSocketSource) Via(flow stream.Flow) stream.Source {
-	return stream.BuildSource(
-		flow.Out(),
-		a.GraphTree().
-			Append(stream.PassThrowGraph(a.Out(), flow.In())).
-			Append(flow.GraphTree()),
-	)
-}
-
-func (a webSocketSource) To(sink stream.Sink) stream.Runnable {
-	return stream.NewRunnable(
-		a.GraphTree().
-			Append(stream.PassThrowGraph(a.Out(), sink.In())).
-			Append(sink.GraphTree()),
-	)
-}
-
-func (a webSocketSource) Out() queue.Queue {
-	return a.out
-}
-
-func (a webSocketSource) GraphTree() *stream.GraphTree {
-	return a.graphTree
-}
-
-func (a webSocketSource) connect(ctx context.Context) {
+func (a webSocketSourceWire) Run(ctx context.Context, cancel context.CancelFunc) {
 	defer func() {
+		cancel()
 		_ = a.conn.Close()
-		a.out.Close()
+		a.to.Close()
 	}()
 	a.conn.SetReadLimit(a.conf.MaxMessageSize)
 	_ = a.conn.SetReadDeadline(time.Now().Add(a.conf.PongWait))
@@ -89,7 +63,7 @@ func (a webSocketSource) connect(ctx context.Context) {
 			}
 			break
 		}
-		err = a.out.Push(ctx, &Message{
+		err = a.to.Push(ctx, &Message{
 			Type:    t,
 			Payload: b,
 		})
@@ -98,3 +72,5 @@ func (a webSocketSource) connect(ctx context.Context) {
 		}
 	}
 }
+
+var _ stream.Wire = (*webSocketSourceWire)(nil)

@@ -20,7 +20,7 @@ func SimpleRunnableStream() {
 		list[i] = i
 	}
 	source := stream.NewSliceSource(list)
-	flow := stream.NewBufferFlow(0)
+	flow := stream.NewBufferFlow()
 	sink := stream.NewSink(func(i interface{}) error {
 		fmt.Println(i)
 		wg.Done()
