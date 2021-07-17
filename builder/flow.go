@@ -21,6 +21,22 @@ type (
 var _ Balance = (*balanceImpl)(nil)
 var _ Merge = (*mergeImpl)(nil)
 
+func NewBroadcast(size int) Balance {
+	in := queue.NewQueueEmpty(0)
+	outs := make([]queue.Queue, size)
+	broadcasts := make([]queue.InQueue, size)
+	for i := 0; i < size; i++ {
+		out := queue.NewQueueEmpty(0)
+		outs[i] = out
+		broadcasts[i] = out
+	}
+	return &balanceImpl{
+		in:        in,
+		out:       outs,
+		graphTree: stream.BroadcastGraph(in, broadcasts),
+	}
+}
+
 func NewBalance(size int) Balance {
 	in := queue.NewQueueEmpty(0)
 	outs := make([]queue.Queue, size)
