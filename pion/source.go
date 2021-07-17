@@ -10,13 +10,11 @@ import (
 	"time"
 )
 
-type CandidateSourceConfig struct {
-	Buffer int
-}
+type CandidateSourceConfig struct{}
 
 // webrtc.ICECandidateInit ->
-func NewWebrtcCandidateSource(conf *CandidateSourceConfig, peer *webrtc.PeerConnection) stream.Source {
-	out := queue.NewQueueEmpty(conf.Buffer)
+func NewWebrtcCandidateSource(conf *CandidateSourceConfig, peer *webrtc.PeerConnection, options ...queue.Option) stream.Source {
+	out := queue.NewQueueEmpty(options...)
 	graphTree := stream.EmptyGraph()
 	graphTree.AddWire(newWebrtcCandidateSourceWire(out, conf, peer))
 	return stream.BuildSource(out, graphTree)
@@ -50,12 +48,11 @@ var _ stream.Wire = (*webrtcCandidateSourceWire)(nil)
 
 type TrackSourceConfig struct {
 	ReadDeadline time.Duration
-	Buffer       int
 }
 
 // *rtp.Packet ->
-func NewWebrtcTrackSource(conf *TrackSourceConfig, peer *webrtc.PeerConnection) stream.Source {
-	out := queue.NewQueueEmpty(conf.Buffer)
+func NewWebrtcTrackSource(conf *TrackSourceConfig, peer *webrtc.PeerConnection, options ...queue.Option) stream.Source {
+	out := queue.NewQueueEmpty(options...)
 	graphTree := stream.EmptyGraph()
 	graphTree.AddWire(newWebrtcTrackSourceWire(out, conf, peer))
 	return stream.BuildSource(out, graphTree)

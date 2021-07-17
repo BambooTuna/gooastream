@@ -29,8 +29,8 @@ func BuildSink(in queue.Queue, graphTree *GraphTree) Sink {
 	Have one input port and no output port.
 	This Sink has no buffer.
 */
-func NewSink(task func(interface{}) error) Sink {
-	in := queue.NewQueueEmpty(0)
+func NewSink(task func(interface{}) error, options ...queue.Option) Sink {
+	in := queue.NewQueueEmpty(options...)
 	out := queue.NewQueueSink(task)
 	return &sinkImpl{
 		in:        in,
@@ -44,8 +44,8 @@ func NewSink(task func(interface{}) error) Sink {
 	Have one input port and no output port.
 	This Sink just throws away the data it receives.
 */
-func NewIgnoreSink() Sink {
-	in := queue.NewQueueEmpty(0)
+func NewIgnoreSink(options ...queue.Option) Sink {
+	in := queue.NewQueueEmpty(options...)
 	out := queue.NewQueueSink(func(interface{}) error { return nil })
 	return &sinkImpl{
 		in:        in,

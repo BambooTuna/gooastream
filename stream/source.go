@@ -39,8 +39,8 @@ func BuildSource(out queue.Queue, graphTree *GraphTree) Source {
 	Have no input port and one output port.
 	If the downstream is clogged, what you send to SourceChannel will be stored in the buffer.
 */
-func NewChannelSource(buffer int) (SourceChannel, Source) {
-	out := queue.NewQueueEmpty(buffer)
+func NewChannelSource(options ...queue.Option) (SourceChannel, Source) {
+	out := queue.NewQueueEmpty(options...)
 	return out, &sourceImpl{
 		out:       out,
 		graphTree: EmptyGraph(),
@@ -66,9 +66,9 @@ func NewInfiniteSource(element interface{}) Source {
 	Create a Source with a buffer.
 	Have no input port and one output port.
 */
-func NewSliceSource(slice []interface{}) Source {
+func NewSliceSource(slice []interface{}, options ...queue.Option) Source {
 	in := queue.NewQueueSlice(slice)
-	out := queue.NewQueueEmpty(len(slice))
+	out := queue.NewQueueEmpty(options...)
 	return &sourceImpl{
 		out:       out,
 		graphTree: PassThrowGraph(in, out),

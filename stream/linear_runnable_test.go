@@ -3,11 +3,15 @@ package stream
 import (
 	"context"
 	"fmt"
+	"github.com/BambooTuna/gooastream/queue"
 	"sync"
 	"time"
 )
 
 func ExampleRunnable_Run() {
+	queue.SetGlobalBuffer(100)
+	queue.SetGlobalStrategy(queue.Fail)
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	var wg sync.WaitGroup
@@ -19,7 +23,7 @@ func ExampleRunnable_Run() {
 		list[i] = i
 	}
 	source := NewSliceSource(list)
-	flow := NewBufferFlow(0)
+	flow := NewBufferFlow()
 	sink := NewSink(func(i interface{}) error {
 		fmt.Println(i)
 		wg.Done()

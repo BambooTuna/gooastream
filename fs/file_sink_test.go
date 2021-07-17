@@ -13,7 +13,6 @@ func ExampleNewFileSource() {
 	source := NewFileSource(&FileSourceConfig{
 		FilePath:   "./test.txt",
 		BufferSize: 1024,
-		Buffer:     0,
 	})
 	sink := stream.NewSink(func(i interface{}) error {
 		fmt.Println(string(i.([]byte)))
@@ -36,7 +35,6 @@ func ExampleNewFileSink() {
 	})
 	sink := NewFileSink(&FileSinkConfig{
 		FilePath: "./test.txt",
-		Buffer:   0,
 	})
 	runnable := source.To(sink)
 	done, runnableCancel := runnable.Run(ctx)

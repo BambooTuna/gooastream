@@ -13,10 +13,13 @@ type (
 		Close()
 	}
 
+	MailboxStrategy uint8
+
 	mailboxImpl struct {
 		mu       sync.RWMutex
 		isClosed bool
 		queue    chan interface{}
+		strategy MailboxStrategy
 	}
 
 	mailboxInfiniteImpl struct {
@@ -26,23 +29,63 @@ type (
 	}
 )
 
-func NewMailbox(size int) Mailbox {
+func NewMailbox() Mailbox {
+	return NewMailboxWithBuffer(defaultQueueOption())
+}
+
+func NewMailboxWithBuffer(option queueOption) Mailbox {
+	return NewMailboxWithStrategy(option.size, option.strategy)
+}
+
+func NewMailboxWithStrategy(size int, strategy MailboxStrategy) Mailbox {
 	return &mailboxImpl{
-		queue: make(chan interface{}, size),
+		queue:    make(chan interface{}, size),
+		strategy: strategy,
 	}
 }
 
 func (a *mailboxImpl) EnqueueOrWaitForVacant(ctx context.Context, in interface{}) error {
 	a.mu.RLock()
 	if a.isClosed {
+		a.mu.RUnlock()
 		return fmt.Errorf("queue is closed")
 	}
-	a.mu.RUnlock()
 	select {
 	case <-ctx.Done():
+		a.mu.RUnlock()
 		return ctx.Err()
+	case a.queue <- in:
+		a.mu.RUnlock()
+		return nil
 	default:
-		a.queue <- in
+		switch a.strategy {
+		case Backpressure:
+			a.mu.RUnlock()
+			a.queue <- in
+			return nil
+		case DropNew:
+			a.mu.RUnlock()
+			return nil
+		case DropHead:
+			_ = <-a.queue
+			a.queue <- in
+			a.mu.RUnlock()
+			return nil
+		case DropBuffer:
+		T:
+			for {
+				select {
+				case _ = <-a.queue:
+				default:
+					break T
+				}
+			}
+			a.mu.RUnlock()
+		case Fail:
+			return fmt.Errorf("buffer is full")
+		default:
+			return fmt.Errorf("unknown strategy")
+		}
 		return nil
 	}
 }
@@ -55,8 +98,7 @@ func (a *mailboxImpl) DequeueOrWaitForElement(ctx context.Context) (interface{},
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
-	default:
-		out, ok := <-a.queue
+	case out, ok := <-a.queue:
 		if !ok {
 			return nil, fmt.Errorf("closed")
 		}

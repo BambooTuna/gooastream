@@ -11,26 +11,25 @@ import (
 type SourceConfig struct {
 	PongWait       time.Duration
 	MaxMessageSize int64
-	Buffer         int
 }
 
-func NewWebSocketSource(conf *SourceConfig, conn *websocket.Conn) stream.Source {
-	out := queue.NewQueueEmpty(conf.Buffer)
+func NewWebSocketSource(conf *SourceConfig, conn *websocket.Conn, options ...queue.Option) stream.Source {
+	out := queue.NewQueueEmpty(options...)
 	graphTree := stream.EmptyGraph()
 	graphTree.AddWire(newWebSocketSourceWire(out, conf, conn))
 	return stream.BuildSource(out, graphTree)
 }
 
-func NewWebSocketClientSource(conf *SourceConfig, url string) (stream.Source, error) {
-	return NewWebSocketClientSourceWithDialer(conf, url, websocket.DefaultDialer)
+func NewWebSocketClientSource(conf *SourceConfig, url string, options ...queue.Option) (stream.Source, error) {
+	return NewWebSocketClientSourceWithDialer(conf, url, websocket.DefaultDialer, options...)
 }
 
-func NewWebSocketClientSourceWithDialer(conf *SourceConfig, url string, dialer *websocket.Dialer) (stream.Source, error) {
+func NewWebSocketClientSourceWithDialer(conf *SourceConfig, url string, dialer *websocket.Dialer, options ...queue.Option) (stream.Source, error) {
 	conn, _, err := dialer.Dial(url, nil)
 	if err != nil {
 		return nil, err
 	}
-	return NewWebSocketSource(conf, conn), nil
+	return NewWebSocketSource(conf, conn, options...), nil
 }
 
 type webSocketSourceWire struct {

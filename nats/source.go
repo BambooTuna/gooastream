@@ -10,11 +10,10 @@ import (
 
 type SourceConfig struct {
 	Subjects []string
-	Buffer   int
 }
 
-func NewNatsSource(conf *SourceConfig, conn *nats.Conn) stream.Source {
-	out := queue.NewQueueEmpty(conf.Buffer)
+func NewNatsSource(conf *SourceConfig, conn *nats.Conn, options ...queue.Option) stream.Source {
+	out := queue.NewQueueEmpty(options...)
 	graphTree := stream.EmptyGraph()
 	graphTree.AddWire(newNatsSourceWire(out, conf, conn))
 	return stream.BuildSource(out, graphTree)

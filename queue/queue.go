@@ -39,9 +39,13 @@ type (
 var EmptyQueueError = fmt.Errorf("empty")
 var ClosedQueueError = fmt.Errorf("sink is closed")
 
-func NewQueueEmpty(size int) Queue {
+func NewQueueEmpty(options ...Option) Queue {
+	option := defaultQueueOption()
+	for _, v := range options {
+		v(&option)
+	}
 	return &queueImpl{
-		q: NewMailbox(size),
+		q: NewMailboxWithBuffer(option),
 	}
 }
 func NewInfiniteElement(element interface{}) Queue {
@@ -59,8 +63,12 @@ func (a *queueImpl) Close() {
 	a.q.Close()
 }
 
-func NewQueueSlice(list []interface{}) Queue {
-	q := NewMailbox(len(list))
+func NewQueueSlice(list []interface{}, options ...Option) Queue {
+	option := defaultQueueOption()
+	for _, v := range options {
+		v(&option)
+	}
+	q := NewMailboxWithBuffer(option)
 	go func() {
 		for _, v := range list {
 			_ = q.EnqueueOrWaitForVacant(context.Background(), v)

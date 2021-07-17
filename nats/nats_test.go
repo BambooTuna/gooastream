@@ -32,7 +32,7 @@ func ExampleNewNatsFlow() {
 	delayFlow := stream.NewMapFlow(func(i interface{}) (interface{}, error) {
 		time.Sleep(time.Millisecond * 100)
 		return i, nil
-	}, 0)
+	})
 	sink := stream.NewSink(func(i interface{}) error {
 		msg := i.(*nats.Msg)
 		fmt.Println(msg.Subject, string(msg.Data))
@@ -47,11 +47,9 @@ func ExampleNewNatsFlow() {
 	flow := NewNatsFlow(
 		&SourceConfig{
 			Subjects: []string{"subject1", "subject2"},
-			Buffer:   0,
 		},
 		&SinkConfig{
 			ByteSubject: "default",
-			Buffer:      0,
 		},
 		conn,
 	)

@@ -12,11 +12,10 @@ import (
 type FileSourceConfig struct {
 	FilePath   string
 	BufferSize int
-	Buffer     int
 }
 
-func NewFileSource(conf *FileSourceConfig) stream.Source {
-	out := queue.NewQueueEmpty(conf.Buffer)
+func NewFileSource(conf *FileSourceConfig, options ...queue.Option) stream.Source {
+	out := queue.NewQueueEmpty(options...)
 	graphTree := stream.EmptyGraph()
 	graphTree.AddWire(newFileSourceWire(out, conf.FilePath, conf.BufferSize))
 	return stream.BuildSource(out, graphTree)
@@ -72,11 +71,10 @@ var _ stream.Wire = (*fileSourceWire)(nil)
 
 type FileSinkConfig struct {
 	FilePath string
-	Buffer   int
 }
 
-func NewFileSink(conf *FileSinkConfig) stream.Sink {
-	in := queue.NewQueueEmpty(conf.Buffer)
+func NewFileSink(conf *FileSinkConfig, options ...queue.Option) stream.Sink {
+	in := queue.NewQueueEmpty(options...)
 	graphTree := stream.EmptyGraph()
 	graphTree.AddWire(newFileSinkWire(in, conf.FilePath))
 	return stream.BuildSink(in, graphTree)

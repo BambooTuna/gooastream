@@ -13,7 +13,7 @@ func WebsocketStream() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
-	ch, source := stream.NewChannelSource(0)
+	ch, source := stream.NewChannelSource()
 	go func() {
 		for range time.Tick(time.Second) {
 			err := ch.Push(ctx, &ws.Message{
@@ -34,12 +34,10 @@ func WebsocketStream() {
 		&ws.SourceConfig{
 			PongWait:       time.Second * 6,
 			MaxMessageSize: 1024,
-			Buffer:         0,
 		},
 		&ws.SinkConfig{
 			WriteWait:  time.Second,
 			PingPeriod: time.Second * 5,
-			Buffer:     0,
 		},
 		"ws://localhost:8080",
 	)

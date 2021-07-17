@@ -32,8 +32,8 @@ func BuildFlow(in, out queue.Queue, graphTree *GraphTree) Flow {
 	Have one input port and one output port.
 	If the downstream is clogged, it will accumulate in the buffer.
 */
-func NewBufferFlow(buffer int) Flow {
-	return NewThrottleFlow(0, buffer, buffer)
+func NewBufferFlow(options ...queue.Option) Flow {
+	return NewThrottleFlow(0, options...)
 }
 
 /*
@@ -43,9 +43,9 @@ func NewBufferFlow(buffer int) Flow {
 	Once in a certain period pass the data between upstream and downstream.
 	If throttle time.Duration is 0 or less, the behavior is the same as pass-through.
 */
-func NewThrottleFlow(throttle time.Duration, inBuffer, outBuffer int) Flow {
-	in := queue.NewQueueEmpty(inBuffer)
-	out := queue.NewQueueEmpty(outBuffer)
+func NewThrottleFlow(throttle time.Duration, options ...queue.Option) Flow {
+	in := queue.NewQueueEmpty(options...)
+	out := queue.NewQueueEmpty(options...)
 	return &flowImpl{
 		in:        in,
 		out:       out,
@@ -59,9 +59,9 @@ func NewThrottleFlow(throttle time.Duration, inBuffer, outBuffer int) Flow {
 	Have one input port and one output port.
 	Pass the result of passing the data of upstream through the function to downstream.
 */
-func NewMapFlow(f func(interface{}) (interface{}, error), buffer int) Flow {
-	in := queue.NewQueueEmpty(buffer)
-	out := queue.NewQueueEmpty(buffer)
+func NewMapFlow(f func(interface{}) (interface{}, error), options ...queue.Option) Flow {
+	in := queue.NewQueueEmpty(options...)
+	out := queue.NewQueueEmpty(options...)
 	return &flowImpl{
 		in:        in,
 		out:       out,
@@ -75,9 +75,9 @@ func NewMapFlow(f func(interface{}) (interface{}, error), buffer int) Flow {
 	Have one input port and one output port.
 	Only allow elements to go downstream.
 */
-func NewFilterFlow(f func(interface{}) (bool, error)) Flow {
-	in := queue.NewQueueEmpty(0)
-	out := queue.NewQueueEmpty(0)
+func NewFilterFlow(f func(interface{}) (bool, error), options ...queue.Option) Flow {
+	in := queue.NewQueueEmpty(options...)
+	out := queue.NewQueueEmpty(options...)
 	return &flowImpl{
 		in:  in,
 		out: out,

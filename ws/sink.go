@@ -11,26 +11,25 @@ import (
 type SinkConfig struct {
 	WriteWait  time.Duration
 	PingPeriod time.Duration
-	Buffer     int
 }
 
-func NewWebSocketSink(conf *SinkConfig, conn *websocket.Conn) stream.Sink {
-	in := queue.NewQueueEmpty(conf.Buffer)
+func NewWebSocketSink(conf *SinkConfig, conn *websocket.Conn, options ...queue.Option) stream.Sink {
+	in := queue.NewQueueEmpty(options...)
 	graphTree := stream.EmptyGraph()
 	graphTree.AddWire(newWebSocketSinkWire(in, conf, conn))
 	return stream.BuildSink(in, graphTree)
 }
 
-func NewWebSocketClientSink(conf *SinkConfig, url string) (stream.Sink, error) {
-	return NewWebSocketClientSinkWithDialer(conf, url, websocket.DefaultDialer)
+func NewWebSocketClientSink(conf *SinkConfig, url string, options ...queue.Option) (stream.Sink, error) {
+	return NewWebSocketClientSinkWithDialer(conf, url, websocket.DefaultDialer, options...)
 }
 
-func NewWebSocketClientSinkWithDialer(conf *SinkConfig, url string, dialer *websocket.Dialer) (stream.Sink, error) {
+func NewWebSocketClientSinkWithDialer(conf *SinkConfig, url string, dialer *websocket.Dialer, options ...queue.Option) (stream.Sink, error) {
 	conn, _, err := dialer.Dial(url, nil)
 	if err != nil {
 		return nil, err
 	}
-	return NewWebSocketSink(conf, conn), nil
+	return NewWebSocketSink(conf, conn, options...), nil
 }
 
 type webSocketSinkWire struct {
