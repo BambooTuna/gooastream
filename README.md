@@ -56,9 +56,14 @@ merge.Out().Wire(sink.In())
 
 etc...
 
+## Graph Builder unit
+- Balance
+- Broadcast
+- Merge
+
 ## Install
 ```bash
-$ go get github.com/BambooTuna/gooastream@v1.1.2
+$ go get github.com/BambooTuna/gooastream@v1.1.4
 ```
 
 ## Usage
