@@ -34,10 +34,10 @@ func NewMailbox(size int) Mailbox {
 
 func (a *mailboxImpl) EnqueueOrWaitForVacant(ctx context.Context, in interface{}) error {
 	a.mu.RLock()
-	defer a.mu.RUnlock()
 	if a.isClosed {
 		return fmt.Errorf("queue is closed")
 	}
+	a.mu.RUnlock()
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -48,10 +48,10 @@ func (a *mailboxImpl) EnqueueOrWaitForVacant(ctx context.Context, in interface{}
 }
 func (a *mailboxImpl) DequeueOrWaitForElement(ctx context.Context) (interface{}, error) {
 	a.mu.RLock()
-	defer a.mu.RUnlock()
 	if a.isClosed {
 		return nil, fmt.Errorf("queue is closed")
 	}
+	a.mu.RUnlock()
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -89,10 +89,10 @@ func NewMailboxInfinite(element interface{}) Mailbox {
 
 func (a *mailboxInfiniteImpl) EnqueueOrWaitForVacant(ctx context.Context, in interface{}) error {
 	a.mu.RLock()
-	defer a.mu.RUnlock()
 	if a.isClosed {
 		return fmt.Errorf("queue is closed")
 	}
+	a.mu.RUnlock()
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -103,10 +103,10 @@ func (a *mailboxInfiniteImpl) EnqueueOrWaitForVacant(ctx context.Context, in int
 }
 func (a *mailboxInfiniteImpl) DequeueOrWaitForElement(ctx context.Context) (interface{}, error) {
 	a.mu.RLock()
-	defer a.mu.RUnlock()
 	if a.isClosed {
 		return nil, fmt.Errorf("queue is closed")
 	}
+	a.mu.RUnlock()
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
