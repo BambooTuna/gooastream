@@ -46,7 +46,7 @@ T:
 			case reflect.Slice:
 				s := reflect.ValueOf(v)
 				for i := 0; i < s.Len(); i++ {
-					err = a.to.Push(ctx, s.Index(i))
+					err = a.to.Push(ctx, s.Index(i).Interface())
 					if err != nil {
 						break T
 					}
@@ -54,7 +54,7 @@ T:
 			case reflect.Array:
 				s := reflect.ValueOf(v)
 				for i := 0; i < s.Len(); i++ {
-					err = a.to.Push(ctx, s.Index(i))
+					err = a.to.Push(ctx, s.Index(i).Interface())
 					if err != nil {
 						break T
 					}
