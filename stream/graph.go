@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/BambooTuna/gooastream/queue"
+	"sync"
 	"time"
 )
 
@@ -146,9 +147,15 @@ func (a *GraphTree) AddWire(wire Wire) {
 	non blocking.
 */
 func (a *GraphTree) Run(ctx context.Context, cancel context.CancelFunc) {
+	var wg sync.WaitGroup
 	for _, wire := range a.wires {
-		go wire.Run(ctx, cancel)
+		wg.Add(1)
+		go func(_ctx context.Context, _cancel context.CancelFunc, _wire Wire) {
+			_wire.Run(_ctx, _cancel)
+			wg.Done()
+		}(ctx, cancel, wire)
 	}
+	wg.Wait()
 }
 
 func (a *lineWire) Run(ctx context.Context, cancel context.CancelFunc) {

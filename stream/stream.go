@@ -3,6 +3,7 @@ package stream
 import (
 	"context"
 	"github.com/BambooTuna/gooastream/queue"
+	"time"
 )
 
 // GraphNode
@@ -42,11 +43,13 @@ type Sink interface {
 }
 
 type (
-	Done   func()
-	Cancel func()
+	Done            func()
+	DoneWithTimeout func(timeout time.Duration)
+	Cancel          func()
 
 	Runnable interface {
 		Run(ctx context.Context) (Done, Cancel)
+		RunWithTimeout(ctx context.Context) (DoneWithTimeout, Cancel)
 		Merge(Runnable) Runnable
 		getGraphTree() *GraphTree
 	}
@@ -70,12 +73,33 @@ func NewRunnable(graphTree *GraphTree) Runnable {
 /*
 	Run
 	Run Runnable Stream with context.Context.
-	Returns a function that waits for the end of the stream and cancel stream it.
+	Returns a function that waits for the end of the context and cancel stream it.
 */
 func (a *runnable) Run(ctx context.Context) (Done, Cancel) {
 	ctx, cancel := context.WithCancel(ctx)
-	a.graphTree.Run(ctx, cancel)
+	go a.graphTree.Run(ctx, cancel)
 	return func() { <-ctx.Done() }, Cancel(cancel)
+}
+
+/*
+	RunWithTimeout
+	Run Runnable Stream with context.Context.
+	Returns a function that waits for the end of the all stream and cancel stream it.
+*/
+func (a *runnable) RunWithTimeout(ctx context.Context) (DoneWithTimeout, Cancel) {
+	ctx, cancel := context.WithCancel(ctx)
+	done := make(chan interface{})
+	go func() {
+		a.graphTree.Run(ctx, cancel)
+		close(done)
+	}()
+	return func(timeout time.Duration) {
+		<-ctx.Done()
+		select {
+		case <-done:
+		case <-time.After(timeout):
+		}
+	}, Cancel(cancel)
 }
 
 /*
