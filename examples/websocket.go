@@ -13,10 +13,10 @@ func WebsocketStream() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
-	ch, source := stream.NewChannelSource()
+	ch, source := stream.NewChannelSource(10)
 	go func() {
 		for range time.Tick(time.Second) {
-			err := ch.Push(ctx, &ws.Message{
+			err := ch.Push(&ws.Message{
 				Type:    websocket.TextMessage,
 				Payload: []byte("payload"),
 			})
