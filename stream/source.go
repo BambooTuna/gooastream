@@ -4,16 +4,6 @@ import (
 	"github.com/BambooTuna/gooastream/queue"
 )
 
-/*
-	SourceChannel
-	This is input channel.
-	If this is closed, it will be transmitted to the entire stream.
-*/
-type SourceChannel interface {
-	queue.InQueue
-	queue.CloserQueue
-}
-
 type sourceImpl struct {
 	out       queue.Queue
 	graphTree *GraphTree
@@ -30,20 +20,6 @@ func BuildSource(out queue.Queue, graphTree *GraphTree) Source {
 	return &sourceImpl{
 		out:       out,
 		graphTree: graphTree,
-	}
-}
-
-/*
-	NewChannelSource
-	Create SourceChannel and Source with a buffer.
-	Have no input port and one output port.
-	If the downstream is clogged, what you send to SourceChannel will be stored in the buffer.
-*/
-func NewChannelSource(options ...queue.Option) (SourceChannel, Source) {
-	out := queue.NewQueueEmpty(options...)
-	return out, &sourceImpl{
-		out:       out,
-		graphTree: EmptyGraph(),
 	}
 }
 
