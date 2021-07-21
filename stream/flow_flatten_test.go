@@ -19,7 +19,8 @@ func ExampleNewFlattenFlow() {
 
 	flow := NewFlattenFlow()
 	sink := NewSink(func(i interface{}) error {
-		fmt.Println(i)
+		v := i.(int)
+		fmt.Println(v)
 		wg.Done()
 		return nil
 	})
