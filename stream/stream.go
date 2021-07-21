@@ -47,6 +47,8 @@ type (
 
 	Runnable interface {
 		Run(ctx context.Context) (Done, Cancel)
+		Merge(Runnable) Runnable
+		getGraphTree() *GraphTree
 	}
 	runnable struct {
 		graphTree *GraphTree
@@ -74,4 +76,16 @@ func (a *runnable) Run(ctx context.Context) (Done, Cancel) {
 	ctx, cancel := context.WithCancel(ctx)
 	a.graphTree.Run(ctx, cancel)
 	return func() { <-ctx.Done() }, Cancel(cancel)
+}
+
+/*
+	Merge
+	Merge two Runnable to one.
+*/
+func (a *runnable) Merge(r Runnable) Runnable {
+	return &runnable{graphTree: a.getGraphTree().Append(r.getGraphTree())}
+}
+
+func (a *runnable) getGraphTree() *GraphTree {
+	return a.graphTree
 }
