@@ -68,17 +68,18 @@ type TrackSinkConfig struct {
 // -> *rtp.Packet
 // -> []byte
 func NewWebrtcTrackSink(conf *TrackSinkConfig, peer *webrtc.PeerConnection, options ...queue.Option) (stream.Sink, error) {
-	track, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus, ClockRate: 48000, Channels: 2, SDPFmtpLine: "", RTCPFeedback: nil}, conf.DefaultTrack.ID(), conf.DefaultTrack.StreamID())
-	if err != nil {
-		return nil, err
-	}
-	err = conf.Transceiver.Sender().ReplaceTrack(track)
-	if err != nil {
-		return nil, err
-	}
+	// TODO
+	//track, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus, ClockRate: 48000, Channels: 2, SDPFmtpLine: "", RTCPFeedback: nil}, conf.DefaultTrack.ID(), conf.DefaultTrack.StreamID())
+	//if err != nil {
+	//	return nil, err
+	//}
+	//err = conf.Transceiver.Sender().ReplaceTrack(track)
+	//if err != nil {
+	//	return nil, err
+	//}
 	in := queue.NewQueueEmpty(options...)
 	graphTree := stream.EmptyGraph()
-	graphTree.AddWire(newWebrtcTrackSinkWire(in, conf, peer, track))
+	graphTree.AddWire(newWebrtcTrackSinkWire(in, conf, peer, conf.DefaultTrack))
 	return stream.BuildSink(in, graphTree), nil
 }
 
@@ -103,7 +104,8 @@ func (a webrtcTrackSinkWire) Run(ctx context.Context, cancel context.CancelFunc)
 	defer func() {
 		cancel()
 		a.to.Close()
-		_ = a.conf.Transceiver.Sender().ReplaceTrack(a.conf.DefaultTrack)
+		// TODO replace track has panic
+		//_ = a.conf.Transceiver.Sender().ReplaceTrack(a.conf.DefaultTrack)
 	}()
 T:
 	for {
