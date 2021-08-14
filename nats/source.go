@@ -9,9 +9,8 @@ import (
 )
 
 type SourceConfig struct {
-	Subjects []string
-	// Zero is not allowed. Any negative value means that the given metric is not limited.
-	MsgLimit, BytesLimit int
+	Subjects   []string
+	NatsBuffer int
 }
 
 func NewNatsSource(conf *SourceConfig, conn *nats.Conn, options ...queue.Option) stream.Source {
@@ -45,12 +44,8 @@ func (a natsSourceWire) Run(ctx context.Context, cancel context.CancelFunc) {
 	for _, subject := range a.conf.Subjects {
 		wg.Add(1)
 		go func(subject string) {
-			ch := make(chan *nats.Msg)
+			ch := make(chan *nats.Msg, a.conf.NatsBuffer)
 			subscribe, err := a.conn.ChanSubscribe(subject, ch)
-			if err != nil {
-				return
-			}
-			err = subscribe.SetPendingLimits(a.conf.MsgLimit, a.conf.BytesLimit)
 			if err != nil {
 				return
 			}
