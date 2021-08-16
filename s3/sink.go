@@ -40,11 +40,15 @@ func newS3SinkWire(from queue.OutQueue, conn *s3manager.Uploader, uploadInput *s
 	}
 }
 func (a s3SinkWire) Run(ctx context.Context, cancel context.CancelFunc) {
+	var err error
 	uploadCtx := context.Background()
 	defer func() {
 		cancel()
 		a.from.Close()
 		_ = a.writer.Close()
+		if err != nil {
+			stream.Log().Errorf("%v", err)
+		}
 	}()
 	go func() {
 		input := a.uploadInput

@@ -81,7 +81,12 @@ func NewFilterFlow(f func(interface{}) (bool, error), options ...queue.Option) F
 	return &flowImpl{
 		in:  in,
 		out: out,
-		graphTree: MapGraph(in, out, func(i interface{}) (interface{}, error) {
+		graphTree: MapGraph(in, out, func(i interface{}) (v interface{}, err error) {
+			defer func() {
+				if err != nil {
+					Log().Errorf("%v", err)
+				}
+			}()
 			ok, err := f(i)
 			if err != nil {
 				return nil, err

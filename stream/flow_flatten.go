@@ -27,10 +27,14 @@ func newFlattenFlowWire(from queue.OutQueue, to queue.InQueue) Wire {
 }
 
 func (a flattenFlowWire) Run(ctx context.Context, cancel context.CancelFunc) {
+	var err error
 	defer func() {
 		cancel()
 		a.from.Close()
 		a.to.Close()
+		if err != nil {
+			Log().Errorf("%v", err)
+		}
 	}()
 T:
 	for {

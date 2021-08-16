@@ -34,10 +34,14 @@ func newWebrtcCandidateSinkWire(from queue.OutQueue, conf *CandidateSinkConfig, 
 }
 
 func (a webrtcCandidateSinkWire) Run(ctx context.Context, cancel context.CancelFunc) {
+	var err error
 	defer func() {
 		cancel()
 		a.from.Close()
 		_ = a.peer.Close()
+		if err != nil {
+			stream.Log().Errorf("%v", err)
+		}
 	}()
 T:
 	for {
@@ -101,11 +105,15 @@ func newWebrtcTrackSinkWire(to queue.Queue, conf *TrackSinkConfig, peer *webrtc.
 }
 
 func (a webrtcTrackSinkWire) Run(ctx context.Context, cancel context.CancelFunc) {
+	var err error
 	defer func() {
 		cancel()
 		a.to.Close()
 		// TODO replace track has panic
 		//_ = a.conf.Transceiver.Sender().ReplaceTrack(a.conf.DefaultTrack)
+		if err != nil {
+			stream.Log().Errorf("%v", err)
+		}
 	}()
 T:
 	for {
