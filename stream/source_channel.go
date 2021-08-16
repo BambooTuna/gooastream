@@ -69,10 +69,14 @@ func newChanSourceWire(to queue.InQueue, inChan *SourceChannel) Wire {
 }
 
 func (a chanSourceWire) Run(ctx context.Context, cancel context.CancelFunc) {
+	var err error
 	defer func() {
 		cancel()
 		a.inChan.Close()
 		a.to.Close()
+		if err != nil {
+			Log().Errorf("%v", err)
+		}
 	}()
 T:
 	for {
@@ -83,7 +87,7 @@ T:
 			if !ok {
 				break T
 			}
-			err := a.to.Push(ctx, v)
+			err = a.to.Push(ctx, v)
 			if err != nil {
 				break T
 			}

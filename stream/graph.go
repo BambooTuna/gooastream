@@ -173,12 +173,16 @@ func (a *lineWire) Run(ctx context.Context, cancel context.CancelFunc) {
 }
 
 func (a *broadcastWire) Run(ctx context.Context, cancel context.CancelFunc) {
+	var err error
 	defer func() {
 		// 先にGraphを止めてからQueueを止める
 		cancel()
 		a.from.Close()
 		for _, v := range a.to {
 			v.Close()
+		}
+		if err != nil {
+			Log().Errorf("%v", err)
 		}
 	}()
 T:
@@ -202,6 +206,14 @@ T:
 }
 
 func passThrow(ctx context.Context, from queue.OutQueue, to queue.InQueue, task func(interface{}) (interface{}, error)) {
+	var err error
+	defer func() {
+		from.Close()
+		to.Close()
+		if err != nil {
+			Log().Errorf("%v", err)
+		}
+	}()
 T:
 	for {
 		select {
@@ -229,7 +241,15 @@ T:
 
 func throttler(ctx context.Context, from queue.OutQueue, to queue.InQueue, throttle time.Duration, task func(interface{}) (interface{}, error)) {
 	ticker := time.NewTicker(throttle)
-	defer ticker.Stop()
+	var err error
+	defer func() {
+		ticker.Stop()
+		from.Close()
+		to.Close()
+		if err != nil {
+			Log().Errorf("%v", err)
+		}
+	}()
 T:
 	for range ticker.C {
 		select {

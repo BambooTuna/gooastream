@@ -35,9 +35,13 @@ func newNatsSinkWire(from queue.OutQueue, conf *SinkConfig, conn *nats.Conn) str
 }
 
 func (a natsSinkWire) Run(ctx context.Context, cancel context.CancelFunc) {
+	var err error
 	defer func() {
 		cancel()
 		a.from.Close()
+		if err != nil {
+			stream.Log().Errorf("%v", err)
+		}
 	}()
 T:
 	for {

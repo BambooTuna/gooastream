@@ -35,10 +35,14 @@ func newTickerSourceWire(to queue.InQueue, duration time.Duration, element inter
 
 func (a tickerSourceWire) Run(ctx context.Context, cancel context.CancelFunc) {
 	ticker := time.NewTicker(a.duration)
+	var err error
 	defer func() {
 		ticker.Stop()
 		cancel()
 		a.to.Close()
+		if err != nil {
+			Log().Errorf("%v", err)
+		}
 	}()
 T:
 	for {
@@ -46,7 +50,7 @@ T:
 		case <-ctx.Done():
 			break T
 		case <-ticker.C:
-			err := a.to.Push(ctx, a.element)
+			err = a.to.Push(ctx, a.element)
 			if err != nil {
 				break T
 			}

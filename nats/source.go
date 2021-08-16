@@ -47,6 +47,7 @@ func (a natsSourceWire) Run(ctx context.Context, cancel context.CancelFunc) {
 			ch := make(chan *nats.Msg, a.conf.NatsBuffer)
 			subscribe, err := a.conn.ChanSubscribe(subject, ch)
 			if err != nil {
+				stream.Log().Errorf("%v", err)
 				return
 			}
 			defer func() {
@@ -64,6 +65,7 @@ func (a natsSourceWire) Run(ctx context.Context, cancel context.CancelFunc) {
 					}
 					err := a.to.Push(ctx, msg)
 					if err != nil {
+						stream.Log().Errorf("%v", err)
 						break T
 					}
 				}

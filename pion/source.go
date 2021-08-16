@@ -37,10 +37,9 @@ func newWebrtcCandidateSourceWire(to queue.Queue, conf *CandidateSourceConfig, p
 
 func (a webrtcCandidateSourceWire) Run(ctx context.Context, cancel context.CancelFunc) {
 	a.peer.OnICECandidate(func(candidate *webrtc.ICECandidate) {
-		if candidate == nil {
-			return
+		if candidate != nil {
+			_ = a.to.Push(ctx, candidate.ToJSON())
 		}
-		_ = a.to.Push(ctx, candidate.ToJSON())
 	})
 }
 
@@ -74,11 +73,15 @@ func newWebrtcTrackSourceWire(to queue.InQueue, conf *TrackSourceConfig, peer *w
 }
 
 func (a webrtcTrackSourceWire) Run(ctx context.Context, cancel context.CancelFunc) {
+	var err error
 	ch := make(chan interface{}, 0)
 	defer func() {
 		cancel()
 		_ = a.peer.Close()
 		a.to.Close()
+		if err != nil {
+			stream.Log().Errorf("%v", err)
+		}
 	}()
 	a.peer.OnTrack(func(remoteTrack *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		go func() {
@@ -86,6 +89,7 @@ func (a webrtcTrackSourceWire) Run(ctx context.Context, cancel context.CancelFun
 			for range ticker.C {
 				errSend := a.peer.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: uint32(remoteTrack.SSRC())}})
 				if errSend != nil {
+					stream.Log().Errorf("%v", errSend)
 					break
 				}
 			}
@@ -96,10 +100,12 @@ func (a webrtcTrackSourceWire) Run(ctx context.Context, cancel context.CancelFun
 		if strings.EqualFold(codec.MimeType, webrtc.MimeTypeOpus) {
 			for {
 				if err := remoteTrack.SetReadDeadline(time.Now().Add(a.conf.ReadDeadline)); err != nil {
+					stream.Log().Errorf("%v", err)
 					break
 				}
 				packet, _, err := remoteTrack.ReadRTP()
 				if err != nil {
+					stream.Log().Errorf("%v", err)
 					break
 				}
 				ch <- packet
@@ -116,7 +122,7 @@ T:
 			if !ok {
 				break T
 			}
-			err := a.to.Push(ctx, data)
+			err = a.to.Push(ctx, data)
 			if err != nil {
 				break T
 			}

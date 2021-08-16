@@ -35,8 +35,10 @@ func newFileSourceWire(to queue.InQueue, filePath string, bufferSize int) stream
 	}
 }
 func (a fileSourceWire) Run(ctx context.Context, cancel context.CancelFunc) {
+	var err error
 	file, err := os.Open(a.filePath)
 	if err != nil {
+		stream.Log().Errorf("%v", err)
 		return
 	}
 	reader := bufio.NewReader(file)
@@ -44,6 +46,9 @@ func (a fileSourceWire) Run(ctx context.Context, cancel context.CancelFunc) {
 		cancel()
 		a.to.Close()
 		_ = file.Close()
+		if err != nil {
+			stream.Log().Errorf("%v", err)
+		}
 	}()
 	buf := make([]byte, a.bufferSize)
 T:
@@ -93,14 +98,19 @@ func newFileSinkWire(from queue.OutQueue, filePath string) stream.Wire {
 }
 
 func (a fileSinkWire) Run(ctx context.Context, cancel context.CancelFunc) {
+	var err error
 	writer, err := os.OpenFile(a.filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
+		stream.Log().Errorf("%v", err)
 		return
 	}
 	defer func() {
 		cancel()
 		a.from.Close()
 		_ = writer.Close()
+		if err != nil {
+			stream.Log().Errorf("%v", err)
+		}
 	}()
 T:
 	for {
