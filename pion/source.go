@@ -47,6 +47,7 @@ var _ stream.Wire = (*webrtcCandidateSourceWire)(nil)
 
 type TrackSourceConfig struct {
 	ReadDeadline time.Duration
+	PacketBuffer int
 }
 
 // *rtp.Packet ->
@@ -74,7 +75,7 @@ func newWebrtcTrackSourceWire(to queue.InQueue, conf *TrackSourceConfig, peer *w
 
 func (a webrtcTrackSourceWire) Run(ctx context.Context, cancel context.CancelFunc) {
 	var err error
-	ch := make(chan interface{}, 0)
+	ch := make(chan interface{}, a.conf.PacketBuffer)
 	defer func() {
 		cancel()
 		_ = a.peer.Close()
