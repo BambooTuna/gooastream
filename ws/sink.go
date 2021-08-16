@@ -11,6 +11,7 @@ import (
 type SinkConfig struct {
 	WriteWait  time.Duration
 	PingPeriod time.Duration
+	MsgBuffer  int
 }
 
 func NewWebSocketSink(conf *SinkConfig, conn *websocket.Conn, options ...queue.Option) stream.Sink {
@@ -49,7 +50,7 @@ func newWebSocketSinkWire(from queue.OutQueue, conf *SinkConfig, conn *websocket
 
 func (a webSocketSinkWire) Run(ctx context.Context, cancel context.CancelFunc) {
 	ticker := time.NewTicker(a.conf.PingPeriod)
-	ch := make(chan interface{}, 0)
+	ch := make(chan interface{}, a.conf.MsgBuffer)
 	defer func() {
 		cancel()
 		ticker.Stop()
