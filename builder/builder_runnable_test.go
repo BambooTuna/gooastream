@@ -48,7 +48,13 @@ func ExampleGraphBuilder_ToRunnable() {
 	balance.Out()[2].Wire(garbageSink.In())
 	merge.Out().Wire(sink.In())
 
+	source.Out().Wire(merge.In()[0])
+	merge.Out().Wire(balance.In())
+	balance.Out()[0].Wire(sink.In())
+	balance.Out()[1].Wire(merge.In()[1])
+
 	runnable := graphBuilder.ToRunnable()
+
 	done, runningCancel := runnable.Run(ctx)
 	go func() {
 		wg.Wait()
